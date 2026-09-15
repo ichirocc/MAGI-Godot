@@ -168,6 +168,27 @@ ws1系・addCons系・updateConstraint/removeConstraintをdispatchする。並�
   マージの出力（`app/build/intermediates/merged_manifest/`）で確認が必要（未実施）。
 - Godot本体の`.tscn`/`.gd`はテキストとして手書きしたものであり、Godotエディタで一度も開いていない。
 
+## 第5段: レビュー対応 A（操作失敗時の再同期・設定同期・防御的描画）
+
+外部レビュー（2026-09-15、`9370626` 時点の静的レビュー）のうち即時対応できる指摘を反映した。
+- `base_screen.run_op` は成功/失敗を返し、失敗時は `MagiApi.state()` から再描画してトグル/入力欄の見た目だけが
+  変わった状態を残さない。エラーは `Content` への追記でなく専用 status ラベルへ上書き表示。
+  `MagiApi.last_error`（接続失敗・snapshot 失敗）があれば「表示は最後に取得できた状態」と明示する。
+- 設定画面: CheckBox/SpinBox/OptionButton を `render()` で state と同期（同期中は signal を dispatch に流さない）し、
+  並列数・予算秒・方式（`setWorkers`/`setBudget`/`setV6Algorithm`）の操作 UI を追加。実行フラグ系は UiState に
+  現在値が無いため扱わない（明記）。
+- 分析画面: 代替案を「案N を採用」ボタン（`applyAlternative`）に、提案/設定ミスの適用は index 指定（件数 0 で無効化）。
+  候補本文は UiState JSON に無い＝件数だけ（本文を返す契約拡張は別段）。`opLog` は BBCode エスケープ。
+- ホーム: `running`/`loaded` に応じてボタンを無効化、「JSON読込へ」導線を追加。
+- 勤務表: 行長の不揃い・添字範囲外に防御的（不正セルは無効ボタン）。`_on_cell_tap` も境界検査。
+- 制約編集: cons42/cons42s の追加フォームを編集フォームと同じ「群1/シフト1/群2/シフト2」順に統一。
+- `MagiBridge`: revision の初期値を生成ごとの乱数にし（Activity 再生成で旧トークンが同じ本文・世代で通る穴を塞ぐ）、
+  応答に `changed`（本文が実際に変わったか）を加え、変わらない no-op では revision を進めない。
+
+対応しなかった/別段のもの: 候補詳細（`fixSuggestions`/`settingIssues` 本文）の JSON 契約拡張、希望セル編集、
+JSON 全文書き出し・SAF 入出力、安定 ID 化、`canonicalBody` のキーソート（両側が同じ生成器・同じ順序のため現状は不要）、
+実機/エミュレータでの統合テスト。
+
 ## 参照した既存仕様
 
 `app/src/main/java/com/magi/app/ui/{MagiViewModel,MagiUiState,MagiScheduleViews,Ws1Editor,

@@ -40,6 +40,7 @@ import com.magi.app.ui.ws1SetGroupShiftRow
 import com.magi.app.v6.V6Algorithm
 import org.json.JSONArray
 import org.json.JSONObject
+import java.security.SecureRandom
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
@@ -59,10 +60,12 @@ import java.util.concurrent.atomic.AtomicLong
 class MagiBridge(private val viewModel: MagiViewModel) {
 
     private val mainHandler = Handler(Looper.getMainLooper())
-    // [トークン] dispatch（変更）が成功するたびに増える。snapshot の再取得では進めない＝
+    // [トークン] dispatch が本文を実際に変えたときだけ増える。snapshot の再取得や no-op の操作では進めない＝
     // プレビューで得たトークンは、別画面が refresh しただけでは死なず、実際に盤面が変わった時だけ失効する。
     // 変更なしで uiState が入れ替わる経路（背景最適化の結果到着など）は本文ハッシュ側が検出する。
-    private val revision = AtomicLong(0)
+    // 初期値は生成ごとの乱数: Activity 再生成で新しい MagiBridge が同じ本文・同じ世代から始まると、
+    // 旧 Activity で発行したトークンがそのまま通ってしまうため。
+    private val revision = AtomicLong(SecureRandom().nextLong() and 0x3FFF_FFFF_FFFF_FFFFL)
 
     /** 現在のUiStateをJSON文字列で返す。呼び出しスレッドは問わない（メインスレッドへ移送して読む）。 */
     fun snapshot(): String = try {
@@ -105,20 +108,24 @@ class MagiBridge(private val viewModel: MagiViewModel) {
                 // その隙に盤面が変わっても通ってしまう（検査と実行の間に穴が開く）。添字ベースの op
                 // （setCell / ws1Move* / ws1Remove* 等）は staffNames・structure の並びが本文ハッシュに
                 // 入るため、並び替え後に古い添字で来た操作はここで弾かれる。stop 等の緊急操作は例外。
+                val before = canonicalBody(uiStateToJson(viewModel.ui.value))
                 if (op !in MagiOpWhitelist.staleTokenExempt) {
-                    val curBody = canonicalBody(uiStateToJson(viewModel.ui.value))
-                    if (!MagiBridgeToken.verify(token, curBody, revision.get())) {
+                    if (!MagiBridgeToken.verify(token, before, revision.get())) {
                         return@runOnMain errorJson("stale token: snapshot changed since this token was issued")
                     }
                 }
                 try {
                     invokeOp(op, args)
-                    val rev = revision.incrementAndGet()
                     val json = uiStateToJson(viewModel.ui.value)
                     val body = canonicalBody(json)
+                    // ViewModel 側が黙って return した no-op（範囲外の添字、同じ値の再設定など）は ok だが
+                    // changed=false。世代も進めないので、直前に発行したトークンはそのまま有効。
+                    val changed = body != before
+                    val rev = if (changed) revision.incrementAndGet() else revision.get()
                     val newToken = MagiBridgeToken.compute(body, rev)
                     JSONObject().apply {
                         put("ok", true)
+                        put("changed", changed)
                         put("snapshot", json.toString())
                         put("token", newToken)
                     }.toString()

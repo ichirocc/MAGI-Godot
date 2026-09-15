@@ -34,12 +34,13 @@ func build_actions(_bar: HBoxContainer) -> void:
 		["希望シフト記号", "前日禁止シフト記号"], "addCons3w", ["wishKigou", "prevKigou"])
 	_add_family_section(root, "cons41", "cons41: 群のレンジ（1日の人数の下限〜上限）",
 		["群記号", "シフト記号", "下限", "上限"], "addCons41", ["groupKigou", "shiftKigou", "l", "u"])
+	# 追加フォームの並びは既存行の編集フォーム（g1/s1/g2/s2）と同じにする。引数はキー名で渡すので順序は自由。
 	_add_family_section(root, "cons42", "cons42: 群ペア禁止（同じ日に不可）",
-		["群1記号", "群2記号", "シフト1記号", "シフト2記号"], "addCons42", ["g1", "g2", "s1", "s2"])
+		["群1記号", "シフト1記号", "群2記号", "シフト2記号"], "addCons42", ["g1", "s1", "g2", "s2"])
 	_add_family_section(root, "cons41s", "cons41s: スキル群のレンジ",
 		["スキル群記号", "シフト記号", "下限", "上限"], "addCons41s", ["groupKigou", "shiftKigou", "l", "u"])
 	_add_family_section(root, "cons42s", "cons42s: スキル群ペア禁止",
-		["スキル群1記号", "スキル群2記号", "シフト1記号", "シフト2記号"], "addCons42s", ["g1", "g2", "s1", "s2"])
+		["スキル群1記号", "シフト1記号", "スキル群2記号", "シフト2記号"], "addCons42s", ["g1", "s1", "g2", "s2"])
 
 	root.add_child(_lbl("その他のSOFT/HARD違反内訳（covU/covO/low/high/apt/fair/weekly/pref/groupViol。行編集は無し・評価結果のみ）"))
 	_breakdown_label = RichTextLabel.new(); _breakdown_label.fit_content = true; _breakdown_label.bbcode_enabled = true

@@ -32,6 +32,12 @@ This project contains a Kotlin/Jetpack Compose Android app that ports the MAGI w
 | [`CLAUDE.md`](./CLAUDE.md) | 引き継ぎ・直近の状態・作業の進め方（grilling 等） |
 | [`docs/changelog.md`](./docs/changelog.md) | **版ごと（3.xxx.0単位）の詳細な変更履歴アーカイブ**（`CLAUDE.md`から切り出し。個別の修正内容・調査記録・実測値を確認したい時だけ検索して読む。通常のセッション開始時には注入されない） |
 
+**最終更新**：2026-09-15（Godot UI移行・第5段: `magiGodot=true` の Godot 版 APK ビルドが CI（Godot UI Check run #9）で
+初めて成功＝Godot AAR に対する `MagiGodotActivity` のコンパイル、`magi.pck` 生成・同梱、Manifest 合流、起動構成 assert を通過。
+あわせて外部レビュー対応 A: `run_op` 失敗時の snapshot 再描画と status 表示、設定画面の state 同期＋並列数/予算/方式 UI、
+分析の代替案採用・候補 index 指定、ホームの実行中 disabled と JSON 導線、勤務表の形状ガード、cons42 入力順統一、
+BBCode エスケープ、`MagiBridge` の revision 乱数初期化と `changed` 応答。実機/エミュレータでの起動確認は未実施）
+
 **最終更新**：2026-09-15（Godot UI移行・第4段: `magiGodot=true` 経路の CI を GitHub ホストランナーで自動化。
 `godot-ui-check.yml` が Godot 4.5.1 Linux 版を公式リリースから取得（sha512 固定）し、push/PR ごとに
 import → headless smoke → `testDebugUnitTest` → `assembleDebug`（magi.pck 同梱）を実行。self-hosted runner は不要に。
