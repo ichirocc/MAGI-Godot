@@ -55,5 +55,12 @@
             android:name="androidx.work.impl.foreground.SystemForegroundService"
             android:foregroundServiceType="dataSync"
             tools:node="merge" />
+        <!-- [Godot移行] magiGodot=true ビルドでのみ実体(MagiGodotActivity)がコンパイルされる。
+             既定ビルドでは未使用の宣言（ランチャーはMainActivityのまま・exported=false＝外部起動不可）。 -->
+        <activity
+            android:name=".godot.MagiGodotActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Magi"
+            android:configChanges="orientation|screenSize|keyboardHidden|keyboard|navigation|uiMode" />
     </application>
 </manifest>

@@ -1,0 +1,26 @@
+; Engine configuration file.
+; MAGI ShiftOptimizer Godot UI レイヤー（Compose UIの置き換え候補、docs/godot-ui-migration.md 参照）
+
+config_version=5
+
+[application]
+
+config/name="MAGI ShiftOptimizer UI"
+run/main_scene="res://scenes/Home.tscn"
+config/features=PackedStringArray("4.5")
+config/icon="res://assets/icon.svg"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=800
+window/handheld/orientation="landscape"
+
+[rendering]
+
+renderer/rendering_method="mobile"
+
+[autoload]
+
+MagiApi="*res://scripts/magi_api.gd"
+Nav="*res://scripts/nav.gd"

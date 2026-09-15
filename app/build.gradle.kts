@@ -6,6 +6,10 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// [Godot移行] `-PmagiGodot=true` の時だけ Godot UI レイヤーを組み込む。既定(false)では
+// src/godot/java を一切コンパイルせず godot AAR依存も追加しない＝既存Composeビルドは無変更のまま。
+val magiGodot: Boolean = (project.findProperty("magiGodot") as String?)?.toBoolean() ?: false
+
 android {
     namespace = "com.magi.app"
     // [Android 17 会話バブル] compileSdk は 36 のまま。当初 37 へ上げたが CI（Release Build）で
@@ -65,6 +69,12 @@ android {
     buildFeatures { compose = true }
     packaging { resources { excludes += setOf("/META-INF/{AL2.0,LGPL2.1}") } }
 
+    // [Godot移行] magiGodot=true の時だけ MagiGodotActivity(GodotHost/GodotFragment利用)を含める。
+    // 既定ビルドはこのディレクトリを見ない＝godot AARが無くてもコンパイルが通る。
+    if (magiGodot) {
+        sourceSets.getByName("main").java.srcDir("src/godot/java")
+    }
+
     // This release variant is a personal-test APK signed with the debug key (see buildTypes.release),
     // not a Play-store build. `lintVitalRelease` aborts the APK on any *fatal* lint issue, which only
     // blocks the test build without adding value here. Don't fail the build on lint; still emit the
@@ -91,6 +101,12 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     // 長時間の最適化計算をバックグラウンドで完遂させる（改善仕様書 §6 / §3.4）
     implementation("androidx.work:work-runtime-ktx:2.9.1")
+
+    // [Godot移行] Godot UIレイヤー本体。magiGodot=trueでのみ追加（未検証: このサンドボックスに
+    // Android/Godotビルド環境が無く、実際の解決・リンクは確認できていない。docs/godot-ui-migration.md参照）。
+    if (magiGodot) {
+        implementation("org.godotengine:godot:4.5.1.stable")
+    }
 
     testImplementation("junit:junit:4.13.2")
     // Real org.json on the unit-test classpath so StateParser (org.json) runs in JVM tests

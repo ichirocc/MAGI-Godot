@@ -26,7 +26,7 @@ OUT=${MAGI_HOST_OUT:-/tmp/magi-hostbuild}; rm -rf "$OUT"; mkdir -p "$OUT/main" "
 KC="$L/kotlin-compiler-embeddable-$KV.jar:$L/kotlin-stdlib-$KV.jar:$L/kotlin-script-runtime-$KV.jar:$L/kotlin-reflect-$KV.jar:$L/kotlin-daemon-embeddable-$KV.jar:$L/trove4j-1.0.20200330.jar:$L/annotations-13.0.jar:$L/kotlinx-coroutines-core-jvm-$CV.jar"
 CP="$L/kotlin-stdlib-$KV.jar:$L/kotlinx-coroutines-core-jvm-$CV.jar:$L/json-20240303.jar:$L/junit-4.13.2.jar:$L/hamcrest-core-1.3.jar"
 A=$ROOT/app/src/main/java/com/magi/app
-MAIN_SRC=$(find "$A/v6" "$A/model" -name '*.kt'; ls "$A"/ui/{MagiUiState,AnalysisTriage,BreakdownLabels,ConstraintHelp,VioBuckets}.kt "$A"/work/{RunFiles,SaveGate,OptimizationRepository}.kt "$HERE"/stubs/*.kt)
+MAIN_SRC=$(find "$A/v6" "$A/model" -name '*.kt'; ls "$A"/ui/{MagiUiState,AnalysisTriage,BreakdownLabels,ConstraintHelp,VioBuckets}.kt "$A"/work/{RunFiles,SaveGate,OptimizationRepository}.kt "$HERE"/stubs/*.kt "$A"/godot/{MagiOpWhitelist,MagiBridgeToken}.kt)
 kotlinc(){ java -Xmx3g -cp "$KC" org.jetbrains.kotlin.cli.jvm.K2JVMCompiler -nowarn -no-stdlib -no-reflect -jvm-target 17 "$@" 2>&1 | grep -v JAVA_TOOL_OPTIONS; return ${PIPESTATUS[0]}; }
 echo "== compile main ($(echo "$MAIN_SRC" | wc -l) files) from $ROOT"
 kotlinc -cp "$CP" -d "$OUT/main" $MAIN_SRC | grep -E "^e: |error:|exception" | head -40; [ ${PIPESTATUS[0]} -eq 0 ] || { echo "MAIN COMPILE FAILED"; exit 1; }
