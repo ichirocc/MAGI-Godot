@@ -5,8 +5,19 @@ extends SceneTree
 ## 非Android実行なので MagiApi はモックJSONを返す＝業務ロジックや実機の橋渡しの検証ではない。
 
 var _exit_code := 0
+var _done := false
 
-func _initialize() -> void:
+# _initialize() は root がツリーに入る前に呼ばれ、そこで add_child しても _ready が走らない
+# （CI 初回で全画面の refresh 検査が空振りした）。最初のフレームで実行し、次のフレームで quit する。
+func _process(_delta: float) -> bool:
+	if _done:
+		quit(_exit_code)
+		return true
+	_done = true
+	_run()
+	return false
+
+func _run() -> void:
 	var nav := root.get_node_or_null("Nav")
 	var api := root.get_node_or_null("MagiApi")
 	if nav == null or api == null:
@@ -35,7 +46,3 @@ func _initialize() -> void:
 		print("smoke: ok %s (%s)" % [key, path])
 	print("smoke: %d screens, %d failed" % [nav.SCENES.size(), failed])
 	_exit_code = 1 if failed > 0 else 0
-
-func _process(_delta: float) -> bool:
-	quit(_exit_code)
-	return true
