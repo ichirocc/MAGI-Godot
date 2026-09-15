@@ -6,9 +6,10 @@ Android SDK / Godotエンジン本体が無いため**一切実施できてい�
 
 ## 目的・方針
 
-既存Compose UI（`app/src/main/java/com/magi/app/ui/`）と並行して、Godot 4.5.1製のUIレイヤーを追加する。
+既存Compose UI（`app/src/main/java/com/magi/app/ui/`）と並行して、Godot 4.5.1製のUIレイヤーを追加する
+（第1〜5段。**第6段で Compose UI を削除し Godot 版のみ**＝本書末尾）。
 - **エンジン層（`v6/`）・重み・保存形式・希望固定の業務解釈は一切変更しない。** Kotlinが正（CLAUDE.md）。
-- 既存Composeビルドは`magiGodot`フラグ（Gradleプロパティ）でOFF/ONを切り替え、既定(OFF)では無変更。
+- 第5段まで: 既存Composeビルドは`magiGodot`フラグ（Gradleプロパティ）でOFF/ONを切り替え、既定(OFF)では無変更。
 - GodotはKotlin側の可変状態(ViewModel)に直接触らず、`MagiBridge`が発行する不変JSONスナップショットと
   トークン付きdispatchのみを介して読み書きする。
 
@@ -190,6 +191,52 @@ ws1系・addCons系・updateConstraint/removeConstraintをdispatchする。並�
 対応しなかった/別段のもの: 候補詳細（`fixSuggestions`/`settingIssues` 本文）の JSON 契約拡張、希望セル編集、
 JSON 全文書き出し・SAF 入出力、安定 ID 化、`canonicalBody` のキーソート（両側が同じ生成器・同じ順序のため現状は不要）、
 実機/エミュレータでの統合テスト。
+
+## 第6段: Compose UI 削除・Godot 一本化（3.549.0、ユーザー決定）
+
+第5段の CI 成功を受け、Compose UI を削除して Godot 版を唯一のビルドにした。`main` は実機確認まで凍結＝作業ブランチのみ。
+上の各節に残る「`magiGodot=true` のときだけ」「Compose 側の LAUNCHER を外す」等の記述は第5段までの経緯であり、現状は本節が正。
+
+**削除したもの**
+- `app/src/main/java/com/magi/app/MainActivity.kt`（Compose ホスト。`MagiTheme` を含む）
+- `ui/` の Composable 17 ファイル: `Affordance`・`ConstraintEditor`・`MagiApp`・`MagiComponents`・`MagiDashboardCards`・
+  `MagiScheduleViews`・`MagiSetupCards`・`MagiTokens`・`NeedDayEditor`・`ShiftColorEditor`・`SkillGroupEditor`・`StaffManageCard`・
+  `StaffRangeEditor`・`StaffShiftMatrix`・`V6RemainingScreens`・`WishEditor`・`Ws1Editor`
+- `work/BubbleActivity.kt`（会話バブルの展開ビュー＝Compose）と `work/BubbleSupport.kt`（バブル通知・会話ショートカット）
+- `app/src/godot/AndroidManifest.xml`（build-type manifest による LAUNCHER 付け替えは不要に）
+- `.claude/skills/design-review/`（Compose の Composable 専用レビュー）
+- CI: `v6-engine-check.yml`（Compose 版 test+assembleDebug）・`release-build.yml`（Compose 版 release）
+
+**残したもの**（Compose 非依存）
+- `ui/`: `MagiUiState`・`MagiViewModel`・`MagiViewModelConditions`・`MagiViewModelConstraints`・`MagiViewModelIo`・
+  `MagiViewModelWs1`・`AnalysisTriage`・`BreakdownLabels`・`ConstraintHelp`・`JapanHolidays`・`VioBuckets`（ロジック無変更）
+- `v6/`・`model/`・`work/OptimizationWorker`・`OptimizationRepository`・`RunFiles`・`SaveGate`・`godot/`（ブリッジ）・`KigouFormat.kt`
+- `docs/DESIGN.md`・`docs/magi_design_system.md`・`docs/screen_spec.md` 等の Compose 時代の文書（Godot テーマの指針として保持）
+
+**通知の変更**（`work/OptimizationWorker.kt`）
+- 会話バブル（`BubbleMetadata`・`MessagingStyle`・長寿命ショートカット）は展開先 Activity が無くなるため廃止。
+- 前景通知（`NID_PROGRESS`）を同 ID で ~1.5 秒間引きの進捗文（経過・違反数）に更新＝バブルが担っていた常時表示の代替。
+- 前景・完了・失敗の各通知に `contentIntent`＝`MagiGodotActivity`（`FLAG_ACTIVITY_NEW_TASK|CLEAR_TOP`）を付与。
+
+**ビルドの一本化**
+- `MagiGodotActivity.kt` を `app/src/main/java/com/magi/app/godot/` へ移動。`app/src/main/AndroidManifest.xml` が
+  `.godot.MagiGodotActivity`（`exported=true`・`configChanges` は Godot 公式テンプレート準拠）を唯一の LAUNCHER として宣言。
+- `app/build.gradle.kts`: `magiGodot` フラグ撤去。Godot AAR（`org.godotengine:godot:4.5.1.stable`）・`androidx.fragment` を通常の
+  `implementation` に、`importGodotProject`/`exportGodotPck`・assets 同梱・`preBuild.dependsOn` を無条件に。`-PgodotExecutable` は
+  常時必須（無ければ `GradleException`）。Compose プラグイン・`buildFeatures.compose`・compose-bom/activity-compose/
+  lifecycle-*-compose/material-icons-extended を撤去し、`MagiViewModel`（`AndroidViewModel`/`viewModelScope`）用に
+  `androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.6` を明示。`activity-ktx` は `fragment` 経由で届くため追加せず。
+  root `build.gradle.kts` から Compose プラグイン宣言を撤去。versionCode 768→769、versionName `3.549.0-godot-ui`。
+
+**CI の整理**
+- `godot-ui-check.yml` が主 CI（`-PmagiGodot=true` 指定を外し、コメントを現状に）。トリガーは従来どおり。
+- `godot-release-build.yml` も同様。`design-lint.yml` のコメントを更新（P1〜P4/P11 は対象なし）。
+- `tools/design_lint.py`: P8（設計文書の ✅ 実在確認）は `@Composable` が無いときスキップ、P11 baseline 6→0。
+  P5/P6/P7/P9/P10 は従来どおり動く。
+
+**検証**: `tools/host/hosttest.sh` 775 件成功、`tools/godot-ui-check.sh`・`tools/design_lint.py` 通過、ワークフロー YAML の
+パース確認。Android 実ビルドはこの環境では不可＝作業ブランチへの push で走る Godot UI Check（testDebugUnitTest →
+assembleDebug → 起動構成 assert）が確認手段。実機での起動は引き続き未実施。
 
 ## 参照した既存仕様
 

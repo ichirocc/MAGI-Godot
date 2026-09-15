@@ -2,7 +2,9 @@
 
 MAGI shift optimizer, native Android port.
 
-This project contains a Kotlin/Jetpack Compose Android app that ports the MAGI web shift optimizer engine into native Kotlin.
+This project contains an Android app that ports the MAGI web shift optimizer engine into native Kotlin.
+The UI is built with Godot 4.5.1 (`godot/`) and a Kotlin bridge (`app/src/main/java/com/magi/app/godot/`);
+the former Jetpack Compose UI was removed in 3.549.0.
 
 ## ドキュメント目次（AI はここから読む）
 
@@ -28,9 +30,17 @@ This project contains a Kotlin/Jetpack Compose Android app that ports the MAGI w
 | [`docs/history/`](./docs/history/) | **作業記録の本文**（版数付き約360節・版数でバケツ分け: `2.x` / `3.0xx` / `3.1xx` / `3.2xx` / `3.3xx` / `3.4xx`）。見出し一覧は [`INDEX.md`](./docs/history/INDEX.md)、話題別の叙述（ネイティブ加速・停滞脱出・ドッグフーディング等）は [`topics.md`](./docs/history/topics.md)（3.497.3 で `CLAUDE.md` 本体から分離）。`grep -n 'キーワード' docs/history/INDEX.md` で当たりを付けてから版数で引く。毎ターン自動では読み込まれない＝過去に測って否決した案・同型のバグ・決定記録を再発させないため、同じ領域を触る前に INDEX.md を必ず確認する |
 | [`docs/screen_inventory_textart.md`](./docs/screen_inventory_textart.md) | **画面棚卸し＋テキストアートのドッグフーディング検証**（3.482.0 時点。タブ5／画面12／モーダル30／Activity2 の集計と、全画面の再現図＋所見20件の優先表。UI を触る前の現状確認と、次の改善候補の一次ソース） |
 | [`docs/lessons.md`](./docs/lessons.md) | **教訓メモ**（修正した点↔機能した点・作る前にやめた判断・測り方・検証手段の穴。新規作成せず更新する） |
-| [`docs/godot-ui-migration.md`](./docs/godot-ui-migration.md) | **Godot UI移行の記録**（`godot/`配下のGodot 4.5.1 UIレイヤーとKotlinブリッジ`app/…/godot/`の実装範囲・許可リスト・トークン方式。**未検証事項の一覧を含む＝動作確認の合格証ではない**） |
+| [`docs/godot-ui-migration.md`](./docs/godot-ui-migration.md) | **Godot UI移行の記録**（`godot/`配下のGodot 4.5.1 UIレイヤーとKotlinブリッジ`app/…/godot/`の実装範囲・許可リスト・トークン方式。第6段で Compose UI を削除し Godot 版に一本化。**未検証事項の一覧を含む＝動作確認の合格証ではない**） |
 | [`CLAUDE.md`](./CLAUDE.md) | 引き継ぎ・直近の状態・作業の進め方（grilling 等） |
 | [`docs/changelog.md`](./docs/changelog.md) | **版ごと（3.xxx.0単位）の詳細な変更履歴アーカイブ**（`CLAUDE.md`から切り出し。個別の修正内容・調査記録・実測値を確認したい時だけ検索して読む。通常のセッション開始時には注入されない） |
+
+**最終更新**：2026-09-15（3.549.0＝Godot UI移行・第6段: Compose UI を削除し Godot 版に一本化（ユーザー決定）。
+`MainActivity`・`ui/` の Composable 17 ファイル・`work/BubbleActivity`・`BubbleSupport` を削除、`MagiGodotActivity` を
+`src/main` へ移し Manifest の唯一の LAUNCHER に、`magiGodot` フラグと Compose 依存/プラグインを撤去（`-PgodotExecutable` は常時必須）。
+背景最適化の通知は残し、タップ先を `MagiGodotActivity` に（会話バブルは廃止、進捗は前景通知を同 ID で更新）。
+CI は Godot UI Check を主に（`v6-engine-check.yml`・`release-build.yml` 削除）、`design_lint.py` の Compose 系検査は対象なし。
+`ui/` に残るのは `MagiUiState`・`MagiViewModel*`・純ロジック 5 本。ホストテスト 775 件成功。versionName `3.549.0-godot-ui`。
+Android 実ビルドは CI で確認）
 
 **最終更新**：2026-09-15（Godot UI移行・第5段: `magiGodot=true` の Godot 版 APK ビルドが CI（Godot UI Check run #9）で
 初めて成功＝Godot AAR に対する `MagiGodotActivity` のコンパイル、`magi.pck` 生成・同梱、Manifest 合流、起動構成 assert を通過。

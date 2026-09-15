@@ -1,5 +1,7 @@
 # 作業記録の索引（見出し一覧）
 
+- Compose UI を削除し Godot 版に一本化（3.549.0、ユーザー決定）。`MainActivity`・`ui/` Composable 17 本・会話バブルを削除、
+  `MagiGodotActivity` を唯一の LAUNCHER に、`magiGodot` フラグ撤去、CI は Godot UI Check が主 → `docs/history/3.4xx.md`
 - シフト種別の色のみ外部へ出力・取込む機能を追加（3.547.0）。`ShiftColorsCsvIO`（記号,色）、
   取込はupsert（載っている記号だけ更新、他は現状維持）、違反色は対象外 → `docs/history/3.4xx.md`
 - シフト色パレットへ「背景色系」家族を新設、公休を移動（3.546.0、ユーザー指示「公休は背景色系にする」）。
