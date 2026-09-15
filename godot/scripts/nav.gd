@@ -21,6 +21,11 @@ const TAB_LABELS := {
 	"undo_export": "取消/保存",
 }
 
+func _ready() -> void:
+	if OS.get_name() == "Android":
+		# 端末ピクセル 1:1 だと高 DPI 端末で文字が極小になる（実機 3.550.0）。dp 相当（DPI/160）へ拡大する。
+		get_tree().root.content_scale_factor = clampf(DisplayServer.screen_get_dpi() / 160.0, 1.0, 4.0)
+
 func go(tab: String) -> void:
 	var path: String = SCENES.get(tab, "")
 	if path == "":

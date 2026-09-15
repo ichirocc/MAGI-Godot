@@ -278,6 +278,25 @@ downloader 経路（`IllegalArgumentException`）には入らない。
 **次の実機報告で見るもの**: 診断画面のスクリーンショット（到達段階＋例外／Godot ログ）。`viewmodel` 止まりなら
 `.so`/PCK/レンダラー、`engine` 止まりなら描画開始か GDScript（Godot ログに出る）、例外記録があればその内容。
 
+**結果（3.550.0 実機）**: 起動成功。ホーム画面がブリッジ経由の実データ（`保存状態: Saved`）を表示＝GDScript→JavaClassWrapper→
+Kotlin の往復が実機で動いた。3.549.0 以前が落ちた原因は特定できていない（診断画面は起動失敗時にしか出ないため。
+変更点のうち効いた可能性が高いのは PCK の絶対パス化／非圧縮同梱）。診断の仕組みは今後の起動不良にそのまま使える。
+
+## 第8段: 実機レイアウト対応（3.551.0）
+
+3.550.0 のスクリーンショットで見えた 3 点への対応。
+- **向き**: `window/handheld/orientation` を `landscape`（第1段の仮置き）から `sensor`（端末の回転に追従）へ＝ユーザー決定。
+- **拡大率**: Godot は既定で端末ピクセル 1:1 に描く（stretch 無効）ため高 DPI 端末で文字が極小だった。`nav.gd` の `_ready` で
+  `root.content_scale_factor = DPI/160`（dp 相当、1〜4 にクランプ、Android のみ）。stretch 無効でも
+  `content_scale_factor` は適用される（`Window::_update_viewport_size` の DISABLED 分岐）。
+- **安全領域**: タブ列がステータスバー／カメラ穴の下に潜っていた。`base_screen.gd` の `_apply_safe_area()` が
+  `DisplayServer.get_display_safe_area()` と `window_get_size()` の差を拡大率で割って `$VBox` の余白にする（Android のみ、
+  `root.size_changed` で回転時に再適用）。
+- **はみ出し**: タブ 10 個・ホームの操作ボタン 8 個は dp 換算の幅に収まらないため、`base_screen.gd` がタブ列と操作列を
+  横スクロールの `ScrollContainer` で包む（縦はスクロール無効＝子の高さに従う。`build_actions` の後に包むので
+  サブクラスの `$VBox/Actions` 参照は従来どおり）。
+- 検証はこの環境では静的（`tools/godot-ui-check.sh`）のみ。見た目は次の実機スクリーンショットで確認する。
+
 ## 参照した既存仕様
 
 `app/src/main/java/com/magi/app/ui/{MagiViewModel,MagiUiState,MagiScheduleViews,Ws1Editor,
