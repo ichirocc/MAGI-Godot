@@ -1,5 +1,8 @@
 # 作業記録の索引（見出し一覧）
 
+- 実機レイアウト対応の修正（3.552.0）。3.551.0 は 3 点とも効かず: `orientation` は整数 enum（文字列は 0＝横）、
+  `content_scale_factor` は `Main::start` の上書き後に各画面で適用、安全領域はカットアウトのみ→Kotlin の `WindowInsets` を
+  `magiInsets()` で渡し `--edge_to_edge`。ホームに版・画面 px・DPI・倍率・余白を表示 → `docs/history/3.4xx.md`
 - 実機レイアウト対応（3.551.0）。3.550.0 が実機で起動成功。向きを sensor（ユーザー決定）、`content_scale_factor=DPI/160`、
   安全領域の余白、タブ列/操作列の横スクロール → `docs/history/3.4xx.md`
 - 実機「起動直後にクラッシュ」への起動診断（3.550.0）。`MagiStartupGuard`＝起動段階マーカー・未捕捉例外記録・次回起動時の

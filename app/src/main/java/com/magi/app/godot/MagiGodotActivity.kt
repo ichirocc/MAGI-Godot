@@ -47,6 +47,14 @@ class MagiGodotActivity : FragmentActivity(), GodotHost {
             guard?.markUiReached()
             return bridge?.dispatch(op, argsJson) ?: MagiBridge.unavailableJson()
         }
+
+        // システムバー＋カットアウトの inset（px）。Godot の get_display_safe_area() はカットアウトしか返さないので、
+        // ステータスバー/ナビバーの分は WindowInsets から渡す。GDScript 側（base_screen.gd）が余白にする。
+        @Volatile
+        private var insets: IntArray = intArrayOf(0, 0, 0, 0)
+
+        @JvmStatic
+        fun magiInsets(): String = insets.joinToString(",", "[", "]")
     }
 
     private var godotFragment: GodotFragment? = null
@@ -88,12 +96,19 @@ class MagiGodotActivity : FragmentActivity(), GodotHost {
                 add("--rendering-method"); add("gl_compatibility")
                 add("--rendering-driver"); add("opengl3")
             }
+            // Godot 自身のシステムバー余白（padding）を使わず、inset を GDScript 側の余白に一本化する。
+            add("--edge_to_edge")
         }
         val fragment = GodotFragment()
         godotFragment = fragment
         supportFragmentManager.beginTransaction()
             .replace(android.R.id.content, fragment)
             .commitNow()
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(android.R.id.content)) { _, wi ->
+            val b = wi.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            insets = intArrayOf(b.left, b.top, b.right, b.bottom)
+            wi
+        }
         g.mark(MagiStartupGuard.STAGE_ENGINE)
     }
 

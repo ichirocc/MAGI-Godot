@@ -19,10 +19,16 @@ func _ready() -> void:
 	# 端末幅に収まらないボタン列は横スクロール（build_actions の後＝サブクラスは $VBox/Actions を直接見られる）。
 	_wrap_horizontal(tab_bar)
 	_wrap_horizontal(actions)
+	Nav.apply_ui_scale()
 	_apply_safe_area()
-	get_tree().root.size_changed.connect(_apply_safe_area)
+	get_tree().root.size_changed.connect(_on_size_changed)
 	MagiApi.refresh()
 	_show_bridge_status()
+
+## 回転直後は WindowInsets の更新が window size の変化より遅れて届くので、少し置いて再適用する。
+func _on_size_changed() -> void:
+	_apply_safe_area()
+	get_tree().create_timer(0.3).timeout.connect(_apply_safe_area)
 
 func _wrap_horizontal(bar: Control) -> void:
 	var parent := bar.get_parent()
@@ -36,19 +42,29 @@ func _wrap_horizontal(bar: Control) -> void:
 	parent.move_child(scroll, idx)
 
 ## ステータスバー・カメラ穴・ナビゲーションバーの下に UI が潜らないよう、$VBox の余白を安全領域に合わせる。
+## Godot の get_display_safe_area()（カットアウトのみ）と Kotlin 側の WindowInsets（システムバー込み）の大きい方。
 ## Android のみ（デスクトップの get_display_safe_area はスクリーン座標でウィンドウと対応しない）。回転で再適用。
 func _apply_safe_area() -> void:
 	if OS.get_name() != "Android":
 		return
+	var m := safe_margins_px()
+	var s: float = get_tree().root.content_scale_factor
+	$VBox.offset_left = m[0] / s
+	$VBox.offset_top = m[1] / s
+	$VBox.offset_right = -m[2] / s
+	$VBox.offset_bottom = -m[3] / s
+
+## 余白 [left, top, right, bottom]（px）。Home の画面診断表示でも使う。
+func safe_margins_px() -> Array:
 	var win := DisplayServer.window_get_size()
 	var safe := DisplayServer.get_display_safe_area()
-	if win.x <= 0 or win.y <= 0 or safe.size.x <= 0 or safe.size.y <= 0:
-		return
-	var s: float = get_tree().root.content_scale_factor
-	$VBox.offset_left = maxf(0.0, safe.position.x / s)
-	$VBox.offset_top = maxf(0.0, safe.position.y / s)
-	$VBox.offset_right = -maxf(0.0, (win.x - safe.end.x) / s)
-	$VBox.offset_bottom = -maxf(0.0, (win.y - safe.end.y) / s)
+	var m := [0.0, 0.0, 0.0, 0.0]
+	if win.x > 0 and win.y > 0 and safe.size.x > 0 and safe.size.y > 0:
+		m = [float(safe.position.x), float(safe.position.y), float(win.x - safe.end.x), float(win.y - safe.end.y)]
+	var ins: Array = MagiApi.insets()
+	for i in range(4):
+		m[i] = maxf(0.0, maxf(m[i], float(ins[i])))
+	return m
 
 func _on_state_changed(state: Dictionary) -> void:
 	render(state)

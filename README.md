@@ -34,6 +34,11 @@ the former Jetpack Compose UI was removed in 3.549.0.
 | [`CLAUDE.md`](./CLAUDE.md) | 引き継ぎ・直近の状態・作業の進め方（grilling 等） |
 | [`docs/changelog.md`](./docs/changelog.md) | **版ごと（3.xxx.0単位）の詳細な変更履歴アーカイブ**（`CLAUDE.md`から切り出し。個別の修正内容・調査記録・実測値を確認したい時だけ検索して読む。通常のセッション開始時には注入されない） |
 
+**最終更新**：2026-09-15（3.552.0＝第8段の修正: 3.551.0 は実機で 3 点とも効かなかった。原因は `orientation` の文字列指定（int 化で 0＝横）、
+`content_scale_factor` の `Main::start` による上書き（各画面の `_ready` で再適用）、`get_display_safe_area()` がカットアウトしか含まない
+（Kotlin の `WindowInsets` を `magiInsets()` で渡し `--edge_to_edge` で Godot 側 padding を停止）。ホーム画面に版・画面 px・DPI・倍率・余白を表示。
+versionName `3.552.0-godot-ui`）
+
 **最終更新**：2026-09-15（3.551.0＝Godot UI移行・第8段: **3.550.0 が実機で起動成功**（ホーム画面がブリッジ経由の実データを表示）。
 スクリーンショットで見えた 3 点を修正: 向きを端末の回転に追従（ユーザー決定）、`content_scale_factor = DPI/160` で dp 相当の拡大、
 安全領域（ステータスバー・カメラ穴）の余白、タブ列・操作列の横スクロール化。versionName `3.551.0-godot-ui`）

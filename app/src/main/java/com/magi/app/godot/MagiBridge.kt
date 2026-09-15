@@ -1,5 +1,6 @@
 package com.magi.app.godot
 
+import android.app.Application
 import android.os.Handler
 import android.os.Looper
 import com.magi.app.ui.MagiViewModel
@@ -272,7 +273,15 @@ class MagiBridge(private val viewModel: MagiViewModel) {
         }
     }
 
+    // Godot 側のホーム画面に出す版表示（実機のスクリーンショットでどの APK かを判別する）。
+    private val appVersion: String = runCatching {
+        val app = viewModel.getApplication<Application>()
+        val info = app.packageManager.getPackageInfo(app.packageName, 0)
+        "${info.versionName} (${info.longVersionCode})"
+    }.getOrDefault("?")
+
     private fun uiStateToJson(ui: UiState): JSONObject = JSONObject().apply {
+        put("appVersion", appVersion)
         put("loaded", ui.loaded)
         put("canUndo", ui.canUndo)
         put("canRedo", ui.canRedo)

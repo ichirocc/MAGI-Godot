@@ -64,6 +64,16 @@ func refresh() -> Dictionary:
 func state() -> Dictionary:
 	return _last_state
 
+## システムバー＋カットアウトの inset（px, [left, top, right, bottom]）。Kotlin 側の WindowInsets 由来。
+## Godot の get_display_safe_area() はカットアウトしか含まないため、ステータスバー/ナビバー分はこちらで得る。
+func insets() -> Array:
+	if not is_native():
+		return [0, 0, 0, 0]
+	var parsed = JSON.parse_string(str(_activity_class.magiInsets()))
+	if parsed is Array and parsed.size() == 4:
+		return parsed
+	return [0, 0, 0, 0]
+
 ## 許可された操作のみ dispatch する（実際の許可判定はKotlin側 MagiOpWhitelist が最終判定）。
 ## 戻り値の "changed" は Kotlin 側が本文の変化で判定した値（no-op の操作は ok=true, changed=false）。
 func dispatch(op: String, args: Dictionary = {}) -> Dictionary:

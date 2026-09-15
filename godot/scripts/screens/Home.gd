@@ -41,6 +41,12 @@ func render(state: Dictionary) -> void:
 		var color = "red" if state.get("messageIsError", false) else "green"
 		lines.append("[color=%s]%s[/color]" % [color, bb(state["message"])])
 	lines.append("保存状態: %s" % state.get("saveState", ""))
+	# 版と画面の実測値（実機のスクリーンショットだけで版・拡大率・余白を確認するため）。
+	var win := DisplayServer.window_get_size()
+	var m := safe_margins_px()
+	lines.append("[color=gray]版 %s / 画面 %dx%d px, DPI %d, 倍率 %.2f, 余白 L%d T%d R%d B%d[/color]" % [
+		bb(state.get("appVersion", "?")), win.x, win.y, DisplayServer.screen_get_dpi(),
+		get_tree().root.content_scale_factor, int(m[0]), int(m[1]), int(m[2]), int(m[3])])
 	$VBox/Content.text = "\n".join(lines)
 	if _buttons.is_empty():
 		return

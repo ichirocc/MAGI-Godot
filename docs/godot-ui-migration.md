@@ -297,6 +297,18 @@ Kotlin の往復が実機で動いた。3.549.0 以前が落ちた原因は特�
   サブクラスの `$VBox/Actions` 参照は従来どおり）。
 - 検証はこの環境では静的（`tools/godot-ui-check.sh`）のみ。見た目は次の実機スクリーンショットで確認する。
 
+**3.551.0 の実機結果**: 3 点とも効かず（横固定・極小文字・ステータスバー下のまま）。原因と 3.552.0 での修正:
+- **向き**: `window/handheld/orientation` は整数 enum（0=landscape … 6=sensor）。文字列 `"sensor"` は `int()` で 0＝landscape に化けていた
+  （第1段の `"landscape"` も同じ理由で「たまたま」横向きだった）。`=6` に修正。
+- **拡大率**: `Main::start` が `display/window/stretch/scale`（既定 1.0）を root に適用するため、autoload の `_ready` で入れた
+  `content_scale_factor` は上書きされうる。各画面の `_ready`（`base_screen`）から `Nav.apply_ui_scale()` を呼ぶ（冪等）。
+- **安全領域**: Godot の `get_display_safe_area()` は**カットアウトしか含まない**（`GodotIO.getDisplaySafeArea` は `DisplayCutout` の
+  inset のみ）。ステータスバー／ナビバー分は Kotlin 側の `WindowInsets`（systemBars＋displayCutout）を `MagiGodotActivity.magiInsets()`
+  で渡し、`base_screen.safe_margins_px()` が両者の大きい方を余白にする。Godot 自身のシステムバー padding（`Godot.kt` の
+  `enableEdgeToEdge`）と二重にならないよう `--edge_to_edge` を渡して Godot 側の padding を止める。
+- **版の可視化**: snapshot に `appVersion` を追加し、ホーム画面の末尾に「版 / 画面 px / DPI / 倍率 / 余白」を灰色で出す＝
+  スクリーンショットだけで、どの APK か・拡大率が効いたか・余白が取れたかを判別できる。
+
 ## 参照した既存仕様
 
 `app/src/main/java/com/magi/app/ui/{MagiViewModel,MagiUiState,MagiScheduleViews,Ws1Editor,
