@@ -9,7 +9,11 @@
 - ループのベンチ: `tools/loop/README.md`。
 
 ## CI（GitHub Actions）
-- ブランチで走るのは Design Lint / Native Parity Check / V6 Engine Check。Release Build と Android SDK は main への push で走る。
+- ブランチで走るのは Design Lint / Native Parity Check / V6 Engine Check（`concurrency: cancel-in-progress`＝同一ブランチへ
+  連続 push すると先行実行はキャンセルされ、コミット一覧では ❌ に見える。失敗と区別するには Actions の結論を見る）。
+  Android SDK ワークフローは重複のため削除済み。
+- **Release Build**（`release-build.yml`）＝Compose 版の release APK（debug 鍵署名の動作確認用）。`v*` タグ push で自動、
+  または手動実行（`upload_apk`）。Godot 版の release は Godot 本体が要るため下の Godot UI Check（`build_release`）で作る。
 - **Godot UI Check**（`.github/workflows/godot-ui-check.yml`）は push/pull_request で自動起動しない。
   Godot 4.5.1 本体・NDK26.1.10909125・CMake3.22.1 を導入済みの `magi-godot` ラベル付き self-hosted runner でのみ
   `workflow_dispatch` 手動実行する（GitHub ホストランナーは Godot 本体を持たず、CI のたびに取得・ライセンス許諾するのは

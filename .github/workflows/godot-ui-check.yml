@@ -19,7 +19,11 @@ on:
         type: string
         default: ""
       upload_apk:
-        description: "生成したdebug APKをartifactとしてアップロードする"
+        description: "生成したAPK（debug / release）をartifactとしてアップロードする"
+        type: boolean
+        default: true
+      build_release:
+        description: "debugに加えてGodot版のrelease APK（debug鍵署名の動作確認用）もビルドする"
         type: boolean
         default: true
 
@@ -106,6 +110,18 @@ jobs:
           set -o pipefail
           gradle -PmagiGodot=true -PgodotExecutable="$GODOT_BIN" :app:assembleDebug --stacktrace 2>&1 | tee build/ci-logs/assembleDebug-godot.log
 
+      # release も debug 鍵署名の動作確認用（app/build.gradle.kts の buildTypes.release）。
+      # Compose 版の release は release-build.yml（GitHub ホストランナー）で作る。
+      - name: Godot組込みAPKビルド（assembleRelease）
+        if: ${{ inputs.build_release }}
+        shell: bash
+        env:
+          GODOT_BIN: ${{ steps.godot.outputs.path }}
+        run: |
+          mkdir -p build/ci-logs
+          set -o pipefail
+          gradle -PmagiGodot=true -PgodotExecutable="$GODOT_BIN" :app:assembleRelease --stacktrace 2>&1 | tee build/ci-logs/assembleRelease-godot.log
+
       # ログ保存はベストエフォート。self-hosted runnerはGitHubホストランナーほど
       # ストレージ枠を気にする必要が薄いが、常時アップロードは無駄なので失敗時のみ短期保持。
       - name: Upload CI logs (on failure only)
@@ -125,4 +141,13 @@ jobs:
         with:
           name: magi-godot-debug-apk-${{ github.sha }}
           path: "**/build/outputs/apk/debug/**/*.apk"
+          retention-days: 14
+
+      - name: Upload release APK (Godot UI)
+        if: ${{ always() && inputs.upload_apk && inputs.build_release && hashFiles('**/build/outputs/apk/release/**/*.apk') != '' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: magi-godot-release-apk-${{ github.sha }}
+          path: "**/build/outputs/apk/release/**/*.apk"
           retention-days: 14
