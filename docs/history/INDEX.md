@@ -1,5 +1,7 @@
 # 作業記録の索引（見出し一覧）
 
+- 実機レイアウト対応（3.551.0）。3.550.0 が実機で起動成功。向きを sensor（ユーザー決定）、`content_scale_factor=DPI/160`、
+  安全領域の余白、タブ列/操作列の横スクロール → `docs/history/3.4xx.md`
 - 実機「起動直後にクラッシュ」への起動診断（3.550.0）。`MagiStartupGuard`＝起動段階マーカー・未捕捉例外記録・次回起動時の
   診断画面（OpenGL 互換切替付き）、PCK を filesDir へ複製し絶対パスで渡す、CI で `.so` の 16KiB 整列検査 → `docs/history/3.4xx.md`
 - Compose UI を削除し Godot 版に一本化（3.549.0、ユーザー決定）。`MainActivity`・`ui/` Composable 17 本・会話バブルを削除、

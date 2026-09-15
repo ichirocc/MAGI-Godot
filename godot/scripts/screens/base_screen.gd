@@ -6,16 +6,49 @@ var tab_key: String = "home"  # サブクラスで上書き
 var _status: Label  # 直近の操作結果/接続状態。Content への追記ではなく上書き表示（古いエラーを溜めない）
 
 func _ready() -> void:
-	Nav.build_tab_bar($VBox/TabBar, tab_key)
+	var tab_bar: HBoxContainer = $VBox/TabBar
+	var actions: HBoxContainer = $VBox/Actions
+	Nav.build_tab_bar(tab_bar, tab_key)
 	_status = Label.new()
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_status.visible = false
 	$VBox.add_child(_status)
-	$VBox.move_child(_status, $VBox.get_children().find($VBox/Actions))
+	$VBox.move_child(_status, $VBox.get_children().find(actions))
 	MagiApi.state_changed.connect(_on_state_changed)
-	build_actions($VBox/Actions)
+	build_actions(actions)
+	# 端末幅に収まらないボタン列は横スクロール（build_actions の後＝サブクラスは $VBox/Actions を直接見られる）。
+	_wrap_horizontal(tab_bar)
+	_wrap_horizontal(actions)
+	_apply_safe_area()
+	get_tree().root.size_changed.connect(_apply_safe_area)
 	MagiApi.refresh()
 	_show_bridge_status()
+
+func _wrap_horizontal(bar: Control) -> void:
+	var parent := bar.get_parent()
+	var idx := bar.get_index()
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED  # 縦は子の高さに合わせる
+	parent.remove_child(bar)
+	scroll.add_child(bar)
+	parent.add_child(scroll)
+	parent.move_child(scroll, idx)
+
+## ステータスバー・カメラ穴・ナビゲーションバーの下に UI が潜らないよう、$VBox の余白を安全領域に合わせる。
+## Android のみ（デスクトップの get_display_safe_area はスクリーン座標でウィンドウと対応しない）。回転で再適用。
+func _apply_safe_area() -> void:
+	if OS.get_name() != "Android":
+		return
+	var win := DisplayServer.window_get_size()
+	var safe := DisplayServer.get_display_safe_area()
+	if win.x <= 0 or win.y <= 0 or safe.size.x <= 0 or safe.size.y <= 0:
+		return
+	var s: float = get_tree().root.content_scale_factor
+	$VBox.offset_left = maxf(0.0, safe.position.x / s)
+	$VBox.offset_top = maxf(0.0, safe.position.y / s)
+	$VBox.offset_right = -maxf(0.0, (win.x - safe.end.x) / s)
+	$VBox.offset_bottom = -maxf(0.0, (win.y - safe.end.y) / s)
 
 func _on_state_changed(state: Dictionary) -> void:
 	render(state)

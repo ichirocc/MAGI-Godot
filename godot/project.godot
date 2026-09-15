@@ -20,7 +20,8 @@ file_logging/enable_file_logging=true
 
 window/size/viewport_width=1280
 window/size/viewport_height=800
-window/handheld/orientation="landscape"
+; 端末の回転に追従（3.551.0 ユーザー決定。安全領域と拡大率は base_screen.gd / nav.gd が実行時に合わせる）
+window/handheld/orientation="sensor"
 
 [rendering]
 
