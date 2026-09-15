@@ -124,7 +124,9 @@ if (magiGodot) {
             "--script", "res://tools/build_pck.gd", "--", godotPckDir.get().file("magi.pck").asFile.absolutePath,
         )
     }
-    android.sourceSets.getByName("main").assets.srcDir(godotPckDir)
+    // AGP は Provider を srcDir に渡すことを禁止する（static/generated の判別不能）。File で渡し、
+    // タスク依存は上の preBuild.dependsOn で明示する。
+    android.sourceSets.getByName("main").assets.srcDir(godotPckDir.get().asFile)
     tasks.named("preBuild") { dependsOn(exportGodotPck) }
 }
 
