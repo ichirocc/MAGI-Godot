@@ -37,8 +37,8 @@ func build_actions(_bar: HBoxContainer) -> void:
 	_skillgroup_kigou_new = LineEdit.new(); _skillgroup_kigou_new.placeholder_text = "記号"; sg_add.add_child(_skillgroup_kigou_new)
 	var sg_add_btn := Button.new(); sg_add_btn.text = "スキル区分を追加"
 	sg_add_btn.pressed.connect(func():
-		run_op("addSkillGroup", {"name": _skillgroup_name_new.text, "kigou": _skillgroup_kigou_new.text})
-		_skillgroup_name_new.text = ""; _skillgroup_kigou_new.text = "")
+		if run_op("addSkillGroup", {"name": _skillgroup_name_new.text, "kigou": _skillgroup_kigou_new.text}):
+			_skillgroup_name_new.text = ""; _skillgroup_kigou_new.text = "")
 	sg_add.add_child(sg_add_btn)
 	root.add_child(sg_add)
 

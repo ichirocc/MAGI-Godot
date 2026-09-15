@@ -182,6 +182,8 @@ ws1系・addCons系・updateConstraint/removeConstraintをdispatchする。並�
 - ホーム: `running`/`loaded` に応じてボタンを無効化、「JSON読込へ」導線を追加。
 - 勤務表: 行長の不揃い・添字範囲外に防御的（不正セルは無効ボタン）。`_on_cell_tap` も境界検査。
 - 制約編集: cons42/cons42s の追加フォームを編集フォームと同じ「群1/シフト1/群2/シフト2」順に統一。
+- 追加フォーム（職員/シフト/群・スキル区分・制約各族）は dispatch が通ったときだけ入力欄を消す
+  （旧: 失敗しても消え、拒否された値を打ち直せなかった）。
 - `MagiBridge`: revision の初期値を生成ごとの乱数にし（Activity 再生成で旧トークンが同じ本文・世代で通る穴を塞ぐ）、
   応答に `changed`（本文が実際に変わったか）を加え、変わらない no-op では revision を進めない。
 

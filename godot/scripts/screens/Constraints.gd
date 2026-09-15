@@ -60,8 +60,8 @@ func _add_family_section(root: VBoxContainer, fam: String, title: String, field_
 		var args := {}
 		for idx in range(add_keys.size()):
 			args[add_keys[idx]] = edits[idx].text
-		run_op(add_op, args)
-		for e in edits: e.text = "")
+		if run_op(add_op, args):
+			for e in edits: e.text = "")
 	add_row.add_child(btn)
 	root.add_child(add_row)
 
@@ -79,8 +79,8 @@ func _add_pattern_section(root: VBoxContainer, fam: String) -> void:
 	btn.pressed.connect(func():
 		var pat: Array = []
 		for e in edits: pat.append(e.text)
-		run_op("addCons3", {"family": fam, "pattern": pat})
-		for e in edits: e.text = "")
+		if run_op("addCons3", {"family": fam, "pattern": pat}):
+			for e in edits: e.text = "")
 	add_row.add_child(btn)
 	root.add_child(add_row)
 

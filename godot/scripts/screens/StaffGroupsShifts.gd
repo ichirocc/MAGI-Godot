@@ -34,9 +34,10 @@ func build_actions(_bar: HBoxContainer) -> void:
 	_staff_name_new = LineEdit.new(); _staff_name_new.placeholder_text = "氏名"; staff_add.add_child(_staff_name_new)
 	_staff_group_new = OptionButton.new(); staff_add.add_child(_staff_group_new)
 	var staff_add_btn := Button.new(); staff_add_btn.text = "職員を追加"
+	# 入力欄を消すのは dispatch が通ったときだけ（拒否された値を打ち直せるように残す）。
 	staff_add_btn.pressed.connect(func():
-		run_op("ws1AddStaff", {"name": _staff_name_new.text, "groupIdx": max(_staff_group_new.get_selected_id(), 0)})
-		_staff_name_new.text = "")
+		if run_op("ws1AddStaff", {"name": _staff_name_new.text, "groupIdx": max(_staff_group_new.get_selected_id(), 0)}):
+			_staff_name_new.text = "")
 	staff_add.add_child(staff_add_btn)
 	root.add_child(staff_add)
 
@@ -49,8 +50,8 @@ func build_actions(_bar: HBoxContainer) -> void:
 	_shift_need2_new = LineEdit.new(); _shift_need2_new.placeholder_text = "上限人数"; shift_add.add_child(_shift_need2_new)
 	var shift_add_btn := Button.new(); shift_add_btn.text = "シフトを追加"
 	shift_add_btn.pressed.connect(func():
-		run_op("ws1AddShift", {"name": _shift_name_new.text, "kigou": _shift_kigou_new.text, "need1": _shift_need1_new.text, "need2": _shift_need2_new.text})
-		_shift_name_new.text = ""; _shift_kigou_new.text = ""; _shift_need1_new.text = ""; _shift_need2_new.text = "")
+		if run_op("ws1AddShift", {"name": _shift_name_new.text, "kigou": _shift_kigou_new.text, "need1": _shift_need1_new.text, "need2": _shift_need2_new.text}):
+			_shift_name_new.text = ""; _shift_kigou_new.text = ""; _shift_need1_new.text = ""; _shift_need2_new.text = "")
 	shift_add.add_child(shift_add_btn)
 	root.add_child(shift_add)
 
@@ -61,8 +62,8 @@ func build_actions(_bar: HBoxContainer) -> void:
 	_group_kigou_new = LineEdit.new(); _group_kigou_new.placeholder_text = "記号"; group_add.add_child(_group_kigou_new)
 	var group_add_btn := Button.new(); group_add_btn.text = "群を追加"
 	group_add_btn.pressed.connect(func():
-		run_op("ws1AddGroup", {"name": _group_name_new.text, "kigou": _group_kigou_new.text})
-		_group_name_new.text = ""; _group_kigou_new.text = "")
+		if run_op("ws1AddGroup", {"name": _group_name_new.text, "kigou": _group_kigou_new.text}):
+			_group_name_new.text = ""; _group_kigou_new.text = "")
 	group_add.add_child(group_add_btn)
 	root.add_child(group_add)
 
