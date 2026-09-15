@@ -9,6 +9,7 @@ import com.magi.app.ui.V6Algorithm
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -26,18 +27,24 @@ import java.util.concurrent.atomic.AtomicLong
 class MagiBridge(private val viewModel: MagiViewModel) {
 
     private val mainHandler = Handler(Looper.getMainLooper())
-    // [トークン] snapshotを返すたびに増える。dispatchは「そのsnapshotへの操作か」をこれで確認する。
+    // [トークン] dispatch（変更）が成功するたびに増える。snapshot の再取得では進めない＝
+    // プレビューで得たトークンは、別画面が refresh しただけでは死なず、実際に盤面が変わった時だけ失効する。
+    // 変更なしで uiState が入れ替わる経路（背景最適化の結果到着など）は本文ハッシュ側が検出する。
     private val revision = AtomicLong(0)
 
     /** 現在のUiStateをJSON文字列で返す。呼び出しスレッドは問わない（メインスレッドへ移送して読む）。 */
-    fun snapshot(): String = runOnMain {
-        val ui = viewModel.uiState.value
-        val rev = revision.incrementAndGet()
-        val json = uiStateToJson(ui)
-        val token = MagiBridgeToken.compute(canonicalBody(json), rev)
-        json.put("_token", token)
-        json.put("_rev", rev)
-        json.toString()
+    fun snapshot(): String = try {
+        runOnMain {
+            val ui = viewModel.uiState.value
+            val rev = revision.get()
+            val json = uiStateToJson(ui)
+            val token = MagiBridgeToken.compute(canonicalBody(json), rev)
+            json.put("_token", token)
+            json.put("_rev", rev)
+            json.toString()
+        }
+    } catch (e: MainThreadTimeoutException) {
+        errorJson(e.message ?: "main thread timeout")
     }
 
     /**
@@ -59,35 +66,50 @@ class MagiBridge(private val viewModel: MagiViewModel) {
         if (!MagiOpWhitelist.hasRequiredArgs(op, presentKeys)) {
             return errorJson("missing required args for $op: need ${MagiOpWhitelist.requiredArgs(op)}")
         }
-        // トークン鮮度チェック（stop等の緊急操作は例外＝実行中でも受理）。
         val token = args.optString("_token", "")
-        if (op !in MagiOpWhitelist.staleTokenExempt) {
-            val cur = revision.get()
-            val curBody = canonicalBody(uiStateToJson(viewModel.uiState.value))
-            if (!MagiBridgeToken.verify(token, curBody, cur)) {
-                return errorJson("stale token: snapshot changed since this token was issued")
+        return try {
+            runOnMain {
+                // 鮮度検査は実行と同じメインスレッド区間で行う。別スレッドで検査してから post すると、
+                // その隙に盤面が変わっても通ってしまう（検査と実行の間に穴が開く）。添字ベースの op
+                // （setCell / ws1Move* / ws1Remove* 等）は staffNames・structure の並びが本文ハッシュに
+                // 入るため、並び替え後に古い添字で来た操作はここで弾かれる。stop 等の緊急操作は例外。
+                if (op !in MagiOpWhitelist.staleTokenExempt) {
+                    val curBody = canonicalBody(uiStateToJson(viewModel.uiState.value))
+                    if (!MagiBridgeToken.verify(token, curBody, revision.get())) {
+                        return@runOnMain errorJson("stale token: snapshot changed since this token was issued")
+                    }
+                }
+                try {
+                    invokeOp(op, args)
+                    val rev = revision.incrementAndGet()
+                    val json = uiStateToJson(viewModel.uiState.value)
+                    val body = canonicalBody(json)
+                    val newToken = MagiBridgeToken.compute(body, rev)
+                    JSONObject().apply {
+                        put("ok", true)
+                        put("snapshot", json.toString())
+                        put("token", newToken)
+                    }.toString()
+                } catch (e: Exception) {
+                    errorJson("dispatch failed for $op: ${e.message}")
+                }
             }
-        }
-        return runOnMain {
-            try {
-                invokeOp(op, args)
-                val rev = revision.incrementAndGet()
-                val json = uiStateToJson(viewModel.uiState.value)
-                val body = canonicalBody(json)
-                val newToken = MagiBridgeToken.compute(body, rev)
-                JSONObject().apply {
-                    put("ok", true)
-                    put("snapshot", json.toString())
-                    put("token", newToken)
-                }.toString()
-            } catch (e: Exception) {
-                errorJson("dispatch failed for $op: ${e.message}")
-            }
+        } catch (e: MainThreadTimeoutException) {
+            errorJson(e.message ?: "main thread timeout")
         }
     }
 
-    private fun errorJson(msg: String): String =
-        JSONObject().apply { put("ok", false); put("error", msg) }.toString()
+    companion object {
+        // メインスレッドが詰まっている（ANR相当）ときに Godot 側まで道連れで固まらないための上限。
+        private const val MAIN_THREAD_TIMEOUT_SEC = 10L
+
+        internal fun errorJson(msg: String): String =
+            JSONObject().apply { put("ok", false); put("error", msg) }.toString()
+
+        internal fun unavailableJson(): String = errorJson("bridge unavailable: MagiGodotActivity not created")
+    }
+
+    private class MainThreadTimeoutException(msg: String) : RuntimeException(msg)
 
     /** token計算対象の正規化本文（_token/_rev自身は対象から除く＝自己参照を避ける）。 */
     private fun canonicalBody(json: JSONObject): String {
@@ -111,7 +133,9 @@ class MagiBridge(private val viewModel: MagiViewModel) {
                 latch.countDown()
             }
         }
-        latch.await()
+        if (!latch.await(MAIN_THREAD_TIMEOUT_SEC, TimeUnit.SECONDS)) {
+            throw MainThreadTimeoutException("main thread did not respond within ${MAIN_THREAD_TIMEOUT_SEC}s")
+        }
         error?.let { throw it }
         @Suppress("UNCHECKED_CAST")
         return result as T

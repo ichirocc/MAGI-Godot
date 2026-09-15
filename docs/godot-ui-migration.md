@@ -19,10 +19,18 @@ Android SDK / Godotエンジン本体が無いため**一切実施できてい�
 - `MagiBridgeToken.kt`: snapshotJSON(本文)のSHA-256 + 単調増加リビジョンからトークンを計算・検証する
   純ロジック（純Kotlin）。`op`が`stop`/`dismissInterrupted`のときはトークンの鮮度チェックを免除する
   （最適化実行中でも停止コマンドは必ず通す設計判断）。
+  **リビジョンは dispatch（変更）成功時にだけ進む**（第3段で変更。旧: `snapshot()`のたびに進み、別画面が
+  refresh しただけでプレビュー用トークンが失効していた）。変更なしで uiState が入れ替わる経路
+  （背景最適化の結果到着など）は本文ハッシュ側が検出する。
 - `MagiBridge.kt`（Android依存・`MagiViewModel`を保持）: `snapshot()`でUiStateの主要フィールドを
-  JSONへ直列化し、`dispatch(op, argsJson)`で許可リスト・必須引数・トークンを検査したのち
-  `Handler(mainLooper)+CountDownLatch`でメインスレッドへ移送してViewModelの対応メソッドを呼ぶ。
-  既存`MagiViewModel*.kt`は**1行も変更していない**。
+  JSONへ直列化し、`dispatch(op, argsJson)`で許可リスト・必須引数を検査したのち
+  `Handler(mainLooper)+CountDownLatch`でメインスレッドへ移送し、**同じメインスレッド区間でトークンの
+  鮮度検査→ViewModelの対応メソッド呼び出し**を行う（第3段で変更。旧: 鮮度検査を呼び出し元スレッドで
+  行ってから post していたため、検査と実行の間に盤面が変わっても通る隙があった）。
+  添字ベースの op（`setCell`/`ws1Move*`/`ws1Remove*`等）は `staffNames`/`structure` の並びが本文ハッシュに
+  入るため、並び替え後に古い添字で来た操作はここで拒否される。
+  メインスレッド待ちは **10秒で打ち切り**、`{"ok":false,"error":...}` を返す（旧: 無期限待ち＝メインスレッドが
+  詰まると Godot 側まで固まった）。既存`MagiViewModel*.kt`は**1行も変更していない**。
 
 ### JVMホストテスト
 - `app/src/test/java/com/magi/app/godot/MagiGodotBridgeTest.kt`: 許可リストの許可/拒否、必須引数の
@@ -44,12 +52,27 @@ Android SDK / Godotエンジン本体が無いため**一切実施できてい�
   `MonthWishesCounts`/`AptSkills`/`Constraints`/`Analysis`/`Settings`/`JsonEditor`/`UndoExport`）。
 
 ### Android側の埋め込み
-- `app/build.gradle.kts`: `-PmagiGodot=true`のときのみ`org.godotengine:godot:4.5.1.stable`依存と
-  `src/godot/java`ソースディレクトリを追加。既定(false)では追加しない＝既存ビルドに影響なし。
-- `app/src/godot/java/com/magi/app/godot/MagiGodotActivity.kt`: `GodotHost`実装＋`GodotFragment`埋め込み。
-  既存`MainActivity`（ランチャー）は変更していない。`AndroidManifest.xml`には`exported=false`で
-  宣言のみ追加（`magiGodot=false`時はこのクラス自体がコンパイルされないが、宣言だけは残る＝
-  マニフェストマージはクラスの実在を検証しないため既存ビルドの通過には影響しない）。
+- `app/build.gradle.kts`: `-PmagiGodot=true`のときのみ`org.godotengine:godot:4.5.1.stable`＋
+  `androidx.fragment:fragment`依存と`src/godot/java`ソースディレクトリを追加し、`src/godot/AndroidManifest.xml`
+  を debug/release の build-type manifest として合流させる。既定(false)では何も追加しない＝既存ビルドに影響なし。
+- **Godotプロジェクトの同梱**（第3段で新設。旧: 同梱工程が無く、起動しても読み込む画面が無かった）:
+  `magiGodot=true` では `-PgodotExecutable` を必須とし、Gradleタスク`exportGodotPck`が
+  `godot --headless --path godot --export-pack Android <build>/generated/godot-assets/magi.pck`
+  （`godot/export_presets.cfg`の最小プリセット）を実行して `assets/magi.pck` として APK に入れる。
+  `MagiGodotActivity.getCommandLine()`が`--main-pack res://magi.pck`を返し、Godot 起動時に読ませる。
+  Godot公式の Android library 手順（PCK を assets に置き `--main-pack` で渡す）に準拠。
+  未検証: `--export-pack` が Android プリセットで export template 無しに通るか、`res://magi.pck` の
+  解決（APK assets）が実機で成立するか。
+- `app/src/godot/AndroidManifest.xml`（第3段で新設）: main より高優先でマージされ、Compose 側
+  `MainActivity` の LAUNCHER intent-filter を `tools:node="remove"` で外し、`MagiGodotActivity` を
+  起動入口として宣言する（`configChanges` は Godot 公式テンプレートに準拠）。**main の
+  `AndroidManifest.xml` は無変更**（第2段までの本文書に「main へ宣言のみ追加」とあったのは誤記で、
+  実際には宣言が無く `magiGodot=true` でも起動できない状態だった）。
+- `app/src/godot/java/com/magi/app/godot/MagiGodotActivity.kt`: `FragmentActivity`＋`GodotHost`実装、
+  `GodotFragment`埋め込み。GDScript の `JavaClassWrapper` は static メソッドしか呼べないため、
+  `magiSnapshot()`/`magiDispatch()` は companion の `@JvmStatic` とし、Activity が生成した `MagiBridge` を
+  `onCreate` で登録・`onDestroy` で解除する（第3段で変更。旧: `ComponentActivity` に
+  `supportFragmentManager` が無く、`GodotHost.getActivity()` も未実装＝コンパイル不能だった）。
 - `tools/godot-ui-check.sh`: GDScriptの粗い構文チェック（gdtoolkit があれば`gdlint`、無ければ括弧対応の
   簡易チェックにフォールバック）とシーン参照の静的整合性確認。
 
@@ -88,7 +111,8 @@ ws1系・addCons系・updateConstraint/removeConstraintをdispatchする。並�
 **実施できていない（このサンドボックスに実行環境が無いため不可能）**:
 - Godotエディタ/エンジンでの実行・レンダリング確認（`.tscn`ファイルがGodot 4.5.1として実際に
   パース可能かは、`gdlint`/`gdformat`が入っていない環境での手書き確認に留まる）。
-- Android Gradleビルド（`./gradlew assembleDebug -PmagiGodot=true`等）そのもの。
+- Android Gradleビルド（`./gradlew assembleDebug -PmagiGodot=true -PgodotExecutable=...`等）そのもの
+  （`exportGodotPck`タスクの実行を含む）。
   `org.godotengine:godot:4.5.1.stable`という座標が実際にMaven解決可能かも未確認。
 - `GodotFragment`/`GodotHost`のAPIシグネチャがGodot 4.5.1のAndroidバインディング実体と一致するか
   （`MagiGodotActivity.kt`はAPI仕様の理解に基づく実装であり、コンパイル未検証）。
@@ -102,11 +126,16 @@ ws1系・addCons系・updateConstraint/removeConstraintをdispatchする。並�
 
 - **トークン設計**: `MagiBridgeToken`はsnapshot本文のSHA-256+単調リビジョンで、dispatch時に
   現在の状態と一致するトークンだけを受理する（`stop`/`dismissInterrupted`は鮮度チェック免除）。
-  実装は仕様どおりで変更不要と判断した。
+  第2段では「変更不要」と判断したが、第3段の再点検で2点を修正した: (a) 鮮度検査が呼び出し元スレッドで
+  行われ、post されたメインスレッド実行までの間に盤面が変わると通ってしまう隙（検査と実行を同一
+  メインスレッド区間へ移動）、(b) `snapshot()` ごとにリビジョンが進み、プレビュー→確定の間に
+  別画面が refresh するだけで確定が拒否される（リビジョンは dispatch 成功時のみ進める）。
 - **非同期順序**: `MagiBridge.dispatch`は`Handler(mainLooper)+CountDownLatch`で常にメインスレッドへ
   同期的に移送する設計（呼び出し元スレッドは`dispatch`の戻りを待つ）。Godot(GDScript)側の
   `MagiApi.dispatch`も呼び出しごとに結果を待ってから次の操作を組み立てる作りのため、連続呼び出しの
   後勝ち/早い者勝ちの矛盾は起きない。シーケンス番号の追加は不要と判断した。
+  待ちは10秒で打ち切る（第3段）。同期待ちが Godot 描画スレッドを止める点は順序保証との意図的な
+  トレードオフで、大盤面での体感は実機計測が要る。
 - **許可リストの網羅性**: タスクBで追加する職員/シフト/群・スキル・制約のCRUD操作（`ws1*`/`addCons*`/
   `updateConstraint`/`removeConstraint`）が未収載だったため、本作業で`MagiOpWhitelist`と
   `MagiBridge.invokeOp`へ追加した。
@@ -120,8 +149,11 @@ ws1系・addCons系・updateConstraint/removeConstraintをdispatchする。並�
 
 - 勤務表のシフト選択は「次のシフトへ巡回」の簡易実装。実際のシフト選択ピッカー(ボトムシート相当)は未実装。
 - JSON全文の読み書き（現盤面のエクスポート）・CSV/JSONのファイル保存(SAF)は未配線。
-- `MagiGodotActivity`のビルド可否・`GodotFragment`の正しい生成方法は実機/実際のGodot Androidテンプレート
-  との突き合わせが必要（Godot公式のAndroidプラグイン雛形を精査していない）。
+- `MagiGodotActivity`のビルド可否・`GodotFragment`の正しい生成方法・`GodotHost`の抽象メソッド一覧は
+  実機/実際のGodot 4.5.1 Androidバインディングとの突き合わせが必要（第3段で `FragmentActivity`化・
+  `getActivity()`実装・static エントリ化を行ったが、コンパイル未検証である点は変わらない）。
+- `src/godot/AndroidManifest.xml` の `tools:node="remove"` による LAUNCHER 付け替えは、マニフェスト
+  マージの出力（`app/build/intermediates/merged_manifest/`）で確認が必要（未実施）。
 - Godot本体の`.tscn`/`.gd`はテキストとして手書きしたものであり、Godotエディタで一度も開いていない。
 
 ## 参照した既存仕様

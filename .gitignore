@@ -3,6 +3,9 @@
 /app/build/
 .gradle/
 
+# Godot エディタ/--export-pack が生成する import キャッシュ（godot/ 直下の .godot/）
+godot/.godot/
+
 # Generated design-preview / report artifacts (regenerate with the tools/ scripts)
 tools/*.png
 tools/*.pdf

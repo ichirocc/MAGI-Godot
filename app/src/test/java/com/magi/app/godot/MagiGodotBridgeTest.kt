@@ -54,6 +54,27 @@ class MagiGodotBridgeTest {
     }
 
     @Test
+    fun `職員の並び替えは本文に反映され古い添字向けトークンが失効する`() {
+        // MagiBridge.uiStateToJson は staffNames / structure.staff を並び順どおりに直列化する。
+        // 並び替え前に発行したトークンは、世代が同じでも本文ハッシュが変わるので通らない
+        // （＝古い添字 i で setCell/ws1EditStaff が別職員を書き換える事故を防ぐ）。
+        val before = """{"staffNames":["A","B","C"],"schedule":[[0],[1],[2]]}"""
+        val after = """{"staffNames":["B","A","C"],"schedule":[[1],[0],[2]]}"""
+        val issued = MagiBridgeToken.compute(before, 5)
+        assertTrue(MagiBridgeToken.verify(issued, before, 5))
+        assertFalse(MagiBridgeToken.verify(issued, after, 5))
+    }
+
+    @Test
+    fun `添字ベースの構造編集opは鮮度検査の例外にしない`() {
+        for (op in listOf("setCell", "setCells", "ws1MoveStaffTo", "ws1MoveShiftTo", "ws1MoveGroupTo",
+            "ws1RemoveStaff", "ws1EditStaff", "removeConstraint")) {
+            assertTrue("$op は許可リストにあるべき", MagiOpWhitelist.isAllowed(op))
+            assertFalse("$op を鮮度検査の例外にしてはいけない", op in MagiOpWhitelist.staleTokenExempt)
+        }
+    }
+
+    @Test
     fun `不正フォーマットのトークンは常に不一致`() {
         assertFalse(MagiBridgeToken.verify("", "{}", 1))
         assertFalse(MagiBridgeToken.verify("garbage", "{}", 1))

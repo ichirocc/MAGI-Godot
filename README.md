@@ -32,6 +32,17 @@ This project contains a Kotlin/Jetpack Compose Android app that ports the MAGI w
 | [`CLAUDE.md`](./CLAUDE.md) | 引き継ぎ・直近の状態・作業の進め方（grilling 等） |
 | [`docs/changelog.md`](./docs/changelog.md) | **版ごと（3.xxx.0単位）の詳細な変更履歴アーカイブ**（`CLAUDE.md`から切り出し。個別の修正内容・調査記録・実測値を確認したい時だけ検索して読む。通常のセッション開始時には注入されない） |
 
+**最終更新**：2026-09-15（Godot UI移行・第3段: 起動阻害3件の修正。①`src/godot/AndroidManifest.xml`を新設し
+`magiGodot=true`時だけbuild-type manifestとして合流＝Compose側LAUNCHERを外し`MagiGodotActivity`を起動入口に
+（main のManifestは無変更。第2段の記録「宣言のみ追加」は誤記で実際は未宣言＝起動不能だった）。
+②`MagiBridge`のメインスレッド待ちに10秒上限、超過時はエラーJSON。③トークン鮮度検査を実行と同じ
+メインスレッド区間へ移し（旧: 検査→postの間に盤面が変わっても通る隙）、リビジョンをdispatch成功時のみ
+進める（旧: snapshotごとに進みプレビュー用トークンが画面更新だけで失効）。あわせて`MagiGodotActivity`を
+`FragmentActivity`化・`GodotHost.getActivity()`実装・`JavaClassWrapper`向けstaticエントリ化。
+④`godot/`をAPKに同梱する工程が無かった（起動しても画面が無い）ため、`-PgodotExecutable`必須の
+Gradleタスク`exportGodotPck`で`assets/magi.pck`へexportし`getCommandLine()`の`--main-pack`で読ませる。
+実ビルド・実機は引き続き未検証＝`docs/godot-ui-migration.md`）
+
 **最終更新**：2026-09-15（Godot UI移行・第2段: 職員/シフト/群 管理・担当とスキル・制約編集(全11族)の
 3画面をプレースホルダから構造編集対応へ。`MagiOpWhitelist`/`MagiBridge`へws1系・addCons系・
 updateConstraint/removeConstraintを追加し、`snapshot()`へ`MagiState`生値の`structure`キーを追加。

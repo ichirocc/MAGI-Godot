@@ -73,6 +73,11 @@ android {
     // 既定ビルドはこのディレクトリを見ない＝godot AARが無くてもコンパイルが通る。
     if (magiGodot) {
         sourceSets.getByName("main").java.srcDir("src/godot/java")
+        // build-type manifest として合流させる（main より高優先＝Compose 側のランチャー登録を外し、
+        // MagiGodotActivity を起動入口に付け替えられる。main の Manifest は触らない）。
+        listOf("debug", "release").forEach {
+            sourceSets.getByName(it).manifest.srcFile("src/godot/AndroidManifest.xml")
+        }
     }
 
     // This release variant is a personal-test APK signed with the debug key (see buildTypes.release),
@@ -85,6 +90,31 @@ android {
         htmlReport = true
         xmlReport = true
     }
+}
+
+// [Godot移行] godot/（.tscn/.gd/project.godot）を PCK に固めて assets へ同梱する。この工程が無いと
+// MagiGodotActivity は起動しても読み込む画面を持たない。PCK 化には Godot 本体が要るため、
+// magiGodot=true では -PgodotExecutable を必須にし、無ければ黙って空APKを作らず設定段階で落とす。
+if (magiGodot) {
+    val godotExecutable = (project.findProperty("godotExecutable") as String?)?.takeIf { it.isNotBlank() }
+        ?: throw GradleException(
+            "magiGodot=true には -PgodotExecutable=/absolute/path/to/godot が必要（godot/ を magi.pck へ export して assets に同梱する）"
+        )
+    val godotProjectDir = rootProject.file("godot")
+    val godotPckDir = layout.buildDirectory.dir("generated/godot-assets")
+    val exportGodotPck = tasks.register<Exec>("exportGodotPck") {
+        description = "godot/ を magi.pck に export し APK の assets へ同梱する"
+        inputs.dir(godotProjectDir)
+        outputs.dir(godotPckDir)
+        doFirst { godotPckDir.get().asFile.mkdirs() }
+        workingDir = godotProjectDir
+        commandLine(
+            godotExecutable, "--headless", "--path", godotProjectDir.absolutePath,
+            "--export-pack", "Android", godotPckDir.get().file("magi.pck").asFile.absolutePath,
+        )
+    }
+    android.sourceSets.getByName("main").assets.srcDir(godotPckDir)
+    tasks.named("preBuild") { dependsOn(exportGodotPck) }
 }
 
 dependencies {
@@ -106,6 +136,9 @@ dependencies {
     // Android/Godotビルド環境が無く、実際の解決・リンクは確認できていない。docs/godot-ui-migration.md参照）。
     if (magiGodot) {
         implementation("org.godotengine:godot:4.5.1.stable")
+        // GodotFragment を載せる FragmentActivity 用。godot AAR の fragment 依存は runtime スコープで
+        // 公開されるためコンパイル時に届かない可能性があり、明示する。
+        implementation("androidx.fragment:fragment:1.8.5")
     }
 
     testImplementation("junit:junit:4.13.2")

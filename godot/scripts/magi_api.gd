@@ -28,9 +28,14 @@ func refresh() -> Dictionary:
 		raw = _activity_class.magiSnapshot()
 	else:
 		raw = _mock_snapshot()
-	var parsed: Dictionary = JSON.parse_string(raw)
-	if parsed == null:
+	var parsed = JSON.parse_string(raw)
+	if parsed == null or not (parsed is Dictionary):
 		push_error("MagiApi: snapshot JSON parse failed")
+		return _last_state
+	# Kotlin側がメインスレッド待ちのタイムアウト等で {"ok":false,"error":...} を返した場合は
+	# 前回の状態を保持する（エラー応答を盤面として描画しない）。
+	if parsed.has("error") and not parsed.get("ok", true):
+		push_error("MagiApi: snapshot failed: %s" % str(parsed["error"]))
 		return _last_state
 	_last_state = parsed
 	_current_token = str(parsed.get("_token", ""))
