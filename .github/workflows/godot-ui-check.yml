@@ -1,10 +1,12 @@
 name: Godot UI Check
 
-# Godot UI移行（docs/godot-ui-migration.md）の検証ワークフロー＝ -PmagiGodot=true 経路の唯一の CI。
+# 主 CI（docs/godot-ui-migration.md）。UI は Godot 版のみ（3.549.0 で Compose UI と magiGodot フラグを撤去＝
+#   Compose 版の v6-engine-check.yml / release-build.yml は削除）。
 # GitHub ホストランナー上で Godot 4.5.1 本体（Linux 版、公式リリース。sha512 固定）を取得し、
 #   GDScript 静的確認 → import → headless smoke → JVM ホストテスト → Kotlin 単体テスト（接続層込み）
 #   → magi.pck 生成込みの assembleDebug（手動実行では assembleRelease も）を一続きで行う。
 # export templates（約1GB）は使わない: PCK は tools/build_pck.gd（PCKPacker）で作る。
+# app/build.gradle.kts は -PgodotExecutable が無いと設定段階で落ちるので、gradle 呼び出しには必ず渡す。
 # 旧: self-hosted runner（ラベル magi-godot）専用・手動のみ。runner が用意できず一度も走らなかったため
 #   ホストランナーへ移し、push/PR でも走らせる。
 
@@ -58,7 +60,7 @@ jobs:
         uses: android-actions/setup-android@v3
         with:
           # 既定 "tools platform-tools" の旧 tools パッケージは SDK リポジトリから消えており
-          # setup 段で exit 1 になる（v6-engine-check.yml と同じ対処）。
+          # setup 段で exit 1 になる。必要なパッケージは下の sdkmanager ステップで入れる。
           packages: platform-tools
 
       - name: Accept Android SDK licenses
@@ -141,13 +143,13 @@ jobs:
           set -o pipefail
           bash tools/host/hosttest.sh 2>&1 | tee build/ci-logs/hosttest.log
 
-      - name: Kotlin単体テスト（magiGodot=true＝src/godot/java もコンパイル）
+      - name: Kotlin単体テスト（エンジン層＋接続層＋MagiGodotActivity のコンパイル）
         shell: bash
         env:
           GODOT_BIN: ${{ steps.godot.outputs.path }}
         run: |
           set -o pipefail
-          gradle -PmagiGodot=true -PgodotExecutable="$GODOT_BIN" testDebugUnitTest --stacktrace 2>&1 | tee build/ci-logs/testDebugUnitTest-godot.log
+          gradle -PgodotExecutable="$GODOT_BIN" testDebugUnitTest --stacktrace 2>&1 | tee build/ci-logs/testDebugUnitTest-godot.log
 
       - name: Godot組込みAPKビルド（assembleDebug、magi.pck 生成込み）
         shell: bash
@@ -155,7 +157,7 @@ jobs:
           GODOT_BIN: ${{ steps.godot.outputs.path }}
         run: |
           set -o pipefail
-          gradle -PmagiGodot=true -PgodotExecutable="$GODOT_BIN" :app:assembleDebug --stacktrace 2>&1 | tee build/ci-logs/assembleDebug-godot.log
+          gradle -PgodotExecutable="$GODOT_BIN" :app:assembleDebug --stacktrace 2>&1 | tee build/ci-logs/assembleDebug-godot.log
 
       # assemble が通っても「起動できる構成」とは限らない。合流後の Manifest で MagiGodotActivity だけが
       # LAUNCHER であること、APK に magi.pck と Godot のネイティブライブラリが入っていることを必須にする。
@@ -177,7 +179,7 @@ jobs:
                       launchers.append(name)
           print("LAUNCHER activities:", launchers)
           if launchers != ["com.magi.app.godot.MagiGodotActivity"]:
-              print("::error::magiGodot=true では MagiGodotActivity だけが LAUNCHER であるべき")
+              print("::error::MagiGodotActivity だけが LAUNCHER であるべき")
               sys.exit(1)
           PY
           apk=app/build/outputs/apk/debug/app-debug.apk
@@ -195,7 +197,7 @@ jobs:
           GODOT_BIN: ${{ steps.godot.outputs.path }}
         run: |
           set -o pipefail
-          gradle -PmagiGodot=true -PgodotExecutable="$GODOT_BIN" :app:assembleRelease --stacktrace 2>&1 | tee build/ci-logs/assembleRelease-godot.log
+          gradle -PgodotExecutable="$GODOT_BIN" :app:assembleRelease --stacktrace 2>&1 | tee build/ci-logs/assembleRelease-godot.log
 
       - name: Upload CI logs (on failure only)
         if: failure()
