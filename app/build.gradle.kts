@@ -102,15 +102,26 @@ if (magiGodot) {
         )
     val godotProjectDir = rootProject.file("godot")
     val godotPckDir = layout.buildDirectory.dir("generated/godot-assets")
+    // export の前に一度 import を走らせ、.godot/ の import キャッシュ（icon.svg 等）を作る。
+    // 未 import のまま --export-pack すると、インポート済みリソースが無いとして失敗しうる。
+    val importGodotProject = tasks.register<Exec>("importGodotProject") {
+        description = "godot/ のリソースを headless で import する（export の前提）"
+        inputs.dir(godotProjectDir)
+        outputs.dir(godotProjectDir.resolve(".godot"))
+        workingDir = godotProjectDir
+        commandLine(godotExecutable, "--headless", "--path", godotProjectDir.absolutePath, "--import")
+    }
+    // --export-pack は export templates（約1GB）が無いと拒否されるため、tools/build_pck.gd（PCKPacker）で詰める。
     val exportGodotPck = tasks.register<Exec>("exportGodotPck") {
-        description = "godot/ を magi.pck に export し APK の assets へ同梱する"
+        description = "godot/ を magi.pck に固めて APK の assets へ同梱する"
+        dependsOn(importGodotProject)
         inputs.dir(godotProjectDir)
         outputs.dir(godotPckDir)
         doFirst { godotPckDir.get().asFile.mkdirs() }
         workingDir = godotProjectDir
         commandLine(
             godotExecutable, "--headless", "--path", godotProjectDir.absolutePath,
-            "--export-pack", "Android", godotPckDir.get().file("magi.pck").asFile.absolutePath,
+            "--script", "res://tools/build_pck.gd", "--", godotPckDir.get().file("magi.pck").asFile.absolutePath,
         )
     }
     android.sourceSets.getByName("main").assets.srcDir(godotPckDir)

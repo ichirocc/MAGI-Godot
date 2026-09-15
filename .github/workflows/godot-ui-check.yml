@@ -1,23 +1,16 @@
 name: Godot UI Check
 
-# Godot UI移行（docs/godot-ui-migration.md）の検証専用ワークフロー。
-# 通常のCI（android-sdk.yml / v6-engine-check.yml / release-build.yml）はGitHubホストランナーで
-# 完結するが、このワークフローはGodotエンジン本体を必要とするため、依存物（JDK/Android SDK36/
-# NDK26.1.10909125/CMake3.22.1/Gradle/Godot 4.5.1本体）を導入済みの self-hosted runner
-# （ラベル magi-godot）でのみ手動実行する。GitHubホストランナーでは実行しない
-# （Godot本体の取得・ライセンス許諾をCIのたびに行うのは非現実的なため）。
-#
-# push/pull_requestで自動起動しないのは、self-hosted runnerの可用性がCI基盤側の都合に依存し、
-# 通常の開発ループ（android-sdk.yml等）を巻き込みたくないため。Godot UI領域を変更したときは
-# 手動でこのワークフローを実行して確認する運用とする。
+# Godot UI移行（docs/godot-ui-migration.md）の検証ワークフロー＝ -PmagiGodot=true 経路の唯一の CI。
+# GitHub ホストランナー上で Godot 4.5.1 本体（Linux 版、公式リリース。sha512 固定）を取得し、
+#   GDScript 静的確認 → import → headless smoke → JVM ホストテスト → Kotlin 単体テスト（接続層込み）
+#   → magi.pck 生成込みの assembleDebug（手動実行では assembleRelease も）を一続きで行う。
+# export templates（約1GB）は使わない: PCK は tools/build_pck.gd（PCKPacker）で作る。
+# 旧: self-hosted runner（ラベル magi-godot）専用・手動のみ。runner が用意できず一度も走らなかったため
+#   ホストランナーへ移し、push/PR でも走らせる。
 
 on:
   workflow_dispatch:
     inputs:
-      godot_executable:
-        description: "Godot 4.5.1実行ファイルの絶対パス（未指定時はrunner環境変数GODOT_EXECUTABLEを使う）"
-        type: string
-        default: ""
       upload_apk:
         description: "生成したAPK（debug / release）をartifactとしてアップロードする"
         type: boolean
@@ -26,6 +19,13 @@ on:
         description: "debugに加えてGodot版のrelease APK（debug鍵署名の動作確認用）もビルドする"
         type: boolean
         default: true
+  push:
+    branches:
+      - main
+      - 'claude/**'
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -34,96 +34,143 @@ concurrency:
   group: godot-ui-check-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  GODOT_VERSION: 4.5.1-stable
+  GODOT_ZIP_SHA512: 5bccbed65a94b82c7c319fdb15719ee8113a6e503976cc54e16f1c61fe95f3d74e5e40b8449b5bb89ff7f424574c20af01a4f5ef08b389e4dc338b245185b0b9
+
 jobs:
   godot-ui-check:
-    runs-on: [self-hosted, magi-godot]
+    runs-on: ubuntu-latest
     timeout-minutes: 45
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # このrunnerは依存物導入済みという前提（docs/environment.md）。GitHubホストランナーの
-      # ワークフローのようにJDK/SDK/Gradleをここで都度インストールしない＝runner側の構成を
-      # 信頼し、無ければ次のステップで明示的に失敗させる（サイレントにスキップしない）。
-      - name: Resolve Godot executable path
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          # 既定 "tools platform-tools" の旧 tools パッケージは SDK リポジトリから消えており
+          # setup 段で exit 1 になる（v6-engine-check.yml と同じ対処）。
+          packages: platform-tools
+
+      - name: Accept Android SDK licenses
+        run: yes | sdkmanager --licenses >/dev/null || true
+
+      - name: Install Android SDK packages
+        run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;26.1.10909125" "cmake;3.22.1"
+
+      - name: Cache Gradle distribution
+        id: gradle-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/gradle-dist
+          key: gradle-dist-9.3.1
+
+      - name: Install Gradle 9.3.1
+        if: steps.gradle-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          wget -q --tries=3 --waitretry=5 -O /tmp/gradle.zip https://services.gradle.org/distributions/gradle-9.3.1-bin.zip
+          echo "b266d5ff6b90eada6dc3b20cb090e3731302e553a27c5d3e4df1f0d76beaff06  /tmp/gradle.zip" | sha256sum -c -
+          mkdir -p "$HOME/gradle-dist"
+          unzip -q /tmp/gradle.zip -d "$HOME/gradle-dist"
+
+      - name: Add Gradle to PATH
+        run: echo "$HOME/gradle-dist/gradle-9.3.1/bin" >> "$GITHUB_PATH"
+
+      - name: Cache Godot
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot-dist
+          key: godot-${{ env.GODOT_VERSION }}-linux-x86_64
+
+      - name: Install Godot ${{ env.GODOT_VERSION }}
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          wget -q --tries=3 --waitretry=5 -O /tmp/godot.zip \
+            "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip"
+          # 公式 SHA512-SUMS.txt の値を固定する（Godot を上げるときは env.GODOT_ZIP_SHA512 も同時に更新）。
+          echo "${GODOT_ZIP_SHA512}  /tmp/godot.zip" | sha512sum -c -
+          mkdir -p "$HOME/godot-dist"
+          unzip -q /tmp/godot.zip -d "$HOME/godot-dist"
+          chmod +x "$HOME/godot-dist/Godot_v${GODOT_VERSION}_linux.x86_64"
+
+      - name: Resolve Godot executable
         id: godot
         shell: bash
         run: |
-          path="${{ inputs.godot_executable }}"
-          if [ -z "$path" ]; then
-            path="${GODOT_EXECUTABLE:-}"
-          fi
-          if [ -z "$path" ] || [ ! -x "$path" ]; then
-            echo "::error::Godot実行ファイルが見つからない。inputs.godot_executableかrunnerのGODOT_EXECUTABLE環境変数で絶対パスを指定すること（見つかったパス: '$path'）。"
-            exit 1
-          fi
+          path="$HOME/godot-dist/Godot_v${GODOT_VERSION}_linux.x86_64"
+          test -x "$path" || { echo "::error::Godot executable not found at $path"; exit 1; }
           "$path" --version
           echo "path=$path" >> "$GITHUB_OUTPUT"
-
-      - name: Verify JDK / Gradle / Android SDK on runner
-        shell: bash
-        run: |
-          set -o pipefail
-          java -version
-          command -v gradle >/dev/null 2>&1 || { echo "::error::gradleがrunnerに見つからない"; exit 1; }
-          gradle --version
-          : "${ANDROID_SDK_ROOT:?ANDROID_SDK_ROOT がrunnerに設定されていない}"
-          sdkmanager --list_installed | grep -E "platforms;android-36|ndk;26.1.10909125|cmake;3.22.1" || {
-            echo "::error::必要なAndroid SDKパッケージ(platforms;android-36 / ndk;26.1.10909125 / cmake;3.22.1)がrunnerに無い";
-            exit 1;
-          }
 
       - name: GDScript構文・シーン参照の静的確認
         shell: bash
         run: bash tools/godot-ui-check.sh
 
-      - name: Godot headless smoke test
+      - name: Godot import（.godot/ キャッシュ生成）
         shell: bash
         env:
           GODOT_BIN: ${{ steps.godot.outputs.path }}
         run: |
           mkdir -p build/ci-logs
+          set -o pipefail
+          "$GODOT_BIN" --headless --path godot --import 2>&1 | tee build/ci-logs/godot-import.log
+
+      - name: Godot headless smoke（10画面の生成と refresh）
+        shell: bash
+        env:
+          GODOT_BIN: ${{ steps.godot.outputs.path }}
+        run: |
           set -o pipefail
           "$GODOT_BIN" --headless --path godot --script res://tools/headless_smoke.gd 2>&1 | tee build/ci-logs/godot-headless-smoke.log
 
-      - name: Kotlin/JVMホストテスト（エンジン層・接続層）
+      - name: Kotlin/JVMホストテスト（エンジン層・接続層の純ロジック）
         shell: bash
         run: |
-          mkdir -p build/ci-logs
           set -o pipefail
           bash tools/host/hosttest.sh 2>&1 | tee build/ci-logs/hosttest.log
 
-      - name: Kotlin単体テスト（Godot接続層 app/src/test）
-        shell: bash
-        run: |
-          mkdir -p build/ci-logs
-          set -o pipefail
-          gradle testDebugUnitTest --stacktrace 2>&1 | tee build/ci-logs/testDebugUnitTest.log
-
-      - name: Godot組込みAPKビルド（assembleDebug）
+      - name: Kotlin単体テスト（magiGodot=true＝src/godot/java もコンパイル）
         shell: bash
         env:
           GODOT_BIN: ${{ steps.godot.outputs.path }}
         run: |
-          mkdir -p build/ci-logs
+          set -o pipefail
+          gradle -PmagiGodot=true -PgodotExecutable="$GODOT_BIN" testDebugUnitTest --stacktrace 2>&1 | tee build/ci-logs/testDebugUnitTest-godot.log
+
+      - name: Godot組込みAPKビルド（assembleDebug、magi.pck 生成込み）
+        shell: bash
+        env:
+          GODOT_BIN: ${{ steps.godot.outputs.path }}
+        run: |
           set -o pipefail
           gradle -PmagiGodot=true -PgodotExecutable="$GODOT_BIN" :app:assembleDebug --stacktrace 2>&1 | tee build/ci-logs/assembleDebug-godot.log
+          echo "== merged manifest (launcher) =="
+          grep -nE "MagiGodotActivity|MainActivity|LAUNCHER" app/build/intermediates/merged_manifest/debug/*/AndroidManifest.xml || true
+          echo "== pck in apk =="
+          unzip -l app/build/outputs/apk/debug/app-debug.apk | grep -E "assets/magi.pck|lib/arm64-v8a/libgodot" || true
 
-      # release も debug 鍵署名の動作確認用（app/build.gradle.kts の buildTypes.release）。
-      # Compose 版の release は release-build.yml（GitHub ホストランナー）で作る。
+      # release も debug 鍵署名の動作確認用（app/build.gradle.kts の buildTypes.release）。手動実行時のみ。
       - name: Godot組込みAPKビルド（assembleRelease）
-        if: ${{ inputs.build_release }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_release }}
         shell: bash
         env:
           GODOT_BIN: ${{ steps.godot.outputs.path }}
         run: |
-          mkdir -p build/ci-logs
           set -o pipefail
           gradle -PmagiGodot=true -PgodotExecutable="$GODOT_BIN" :app:assembleRelease --stacktrace 2>&1 | tee build/ci-logs/assembleRelease-godot.log
 
-      # ログ保存はベストエフォート。self-hosted runnerはGitHubホストランナーほど
-      # ストレージ枠を気にする必要が薄いが、常時アップロードは無駄なので失敗時のみ短期保持。
       - name: Upload CI logs (on failure only)
         if: failure()
         continue-on-error: true
@@ -135,7 +182,7 @@ jobs:
           retention-days: 7
 
       - name: Upload debug APK (Godot UI)
-        if: ${{ always() && inputs.upload_apk && hashFiles('**/build/outputs/apk/debug/**/*.apk') != '' }}
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.upload_apk && hashFiles('**/build/outputs/apk/debug/**/*.apk') != '' }}
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
@@ -144,7 +191,7 @@ jobs:
           retention-days: 14
 
       - name: Upload release APK (Godot UI)
-        if: ${{ always() && inputs.upload_apk && inputs.build_release && hashFiles('**/build/outputs/apk/release/**/*.apk') != '' }}
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.upload_apk && inputs.build_release && hashFiles('**/build/outputs/apk/release/**/*.apk') != '' }}
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:

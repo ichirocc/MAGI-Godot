@@ -56,13 +56,15 @@ Android SDK / Godotエンジン本体が無いため**一切実施できてい�
   `androidx.fragment:fragment`依存と`src/godot/java`ソースディレクトリを追加し、`src/godot/AndroidManifest.xml`
   を debug/release の build-type manifest として合流させる。既定(false)では何も追加しない＝既存ビルドに影響なし。
 - **Godotプロジェクトの同梱**（第3段で新設。旧: 同梱工程が無く、起動しても読み込む画面が無かった）:
-  `magiGodot=true` では `-PgodotExecutable` を必須とし、Gradleタスク`exportGodotPck`が
-  `godot --headless --path godot --export-pack Android <build>/generated/godot-assets/magi.pck`
-  （`godot/export_presets.cfg`の最小プリセット）を実行して `assets/magi.pck` として APK に入れる。
+  `magiGodot=true` では `-PgodotExecutable` を必須とし、Gradleタスク `importGodotProject`
+  （`godot --headless --path godot --import`＝`.godot/imported` を生成）→ `exportGodotPck`
+  （`godot --headless --path godot --script res://tools/build_pck.gd -- <build>/generated/godot-assets/magi.pck`）
+  で `assets/magi.pck` として APK に入れる。`tools/build_pck.gd` は `PCKPacker` で res:// 配下（import キャッシュ含む）を
+  そのまま詰める＝**export templates（約1GB）が不要**（第4段で `--export-pack`＋`export_presets.cfg` から変更。
+  `--export-pack` はテンプレート未導入だと設定エラーで拒否されるため）。
   `MagiGodotActivity.getCommandLine()`が`--main-pack res://magi.pck`を返し、Godot 起動時に読ませる。
   Godot公式の Android library 手順（PCK を assets に置き `--main-pack` で渡す）に準拠。
-  未検証: `--export-pack` が Android プリセットで export template 無しに通るか、`res://magi.pck` の
-  解決（APK assets）が実機で成立するか。
+  未検証: `res://magi.pck` の解決（APK assets）が実機で成立するか。
 - `app/src/godot/AndroidManifest.xml`（第3段で新設）: main より高優先でマージされ、Compose 側
   `MainActivity` の LAUNCHER intent-filter を `tools:node="remove"` で外し、`MagiGodotActivity` を
   起動入口として宣言する（`configChanges` は Godot 公式テンプレートに準拠）。**main の
@@ -75,6 +77,13 @@ Android SDK / Godotエンジン本体が無いため**一切実施できてい�
   `supportFragmentManager` が無く、`GodotHost.getActivity()` も未実装＝コンパイル不能だった）。
 - `tools/godot-ui-check.sh`: GDScriptの粗い構文チェック（gdtoolkit があれば`gdlint`、無ければ括弧対応の
   簡易チェックにフォールバック）とシーン参照の静的整合性確認。
+- `godot/tools/headless_smoke.gd`（第4段で新設。第2段までの記録に「作成済み」とあったが実在しなかった）:
+  `godot --headless --path godot --script res://tools/headless_smoke.gd` で autoload の存在と `Nav.SCENES` 全10画面の
+  ロード・インスタンス化・`_ready`（`MagiApi.refresh`→`render`）を確認する。非Androidなのでモック経由。
+- `.github/workflows/godot-ui-check.yml`（第4段で GitHub ホストランナーへ移行）: Godot 4.5.1 Linux 版を公式リリースから
+  取得（sha512 固定・キャッシュ）し、静的確認 → import → smoke → JVM ホストテスト → `-PmagiGodot=true` の
+  `testDebugUnitTest` → `assembleDebug`（手動実行では `assembleRelease` も）を push/PR/手動で走らせる。
+  `magiGodot=true` 経路を検証する唯一の CI。
 
 ## 画面ごとの実装状況（10領域）
 

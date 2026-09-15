@@ -32,6 +32,12 @@ This project contains a Kotlin/Jetpack Compose Android app that ports the MAGI w
 | [`CLAUDE.md`](./CLAUDE.md) | 引き継ぎ・直近の状態・作業の進め方（grilling 等） |
 | [`docs/changelog.md`](./docs/changelog.md) | **版ごと（3.xxx.0単位）の詳細な変更履歴アーカイブ**（`CLAUDE.md`から切り出し。個別の修正内容・調査記録・実測値を確認したい時だけ検索して読む。通常のセッション開始時には注入されない） |
 
+**最終更新**：2026-09-15（Godot UI移行・第4段: `magiGodot=true` 経路の CI を GitHub ホストランナーで自動化。
+`godot-ui-check.yml` が Godot 4.5.1 Linux 版を公式リリースから取得（sha512 固定）し、push/PR ごとに
+import → headless smoke → `testDebugUnitTest` → `assembleDebug`（magi.pck 同梱）を実行。self-hosted runner は不要に。
+PCK 生成は export templates 不要の `godot/tools/build_pck.gd`（PCKPacker）へ変更、`export_presets.cfg` は撤去。
+実在しなかった `godot/tools/headless_smoke.gd` を新設。ここまでで Godot 版の実ビルドは未確認＝この CI の初回結果が最初の検証）
+
 **最終更新**：2026-09-15（Godot UI移行・第3段: 起動阻害3件の修正。①`src/godot/AndroidManifest.xml`を新設し
 `magiGodot=true`時だけbuild-type manifestとして合流＝Compose側LAUNCHERを外し`MagiGodotActivity`を起動入口に
 （main のManifestは無変更。第2段の記録「宣言のみ追加」は誤記で実際は未宣言＝起動不能だった）。

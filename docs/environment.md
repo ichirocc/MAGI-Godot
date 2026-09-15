@@ -14,13 +14,13 @@
   Android SDK ワークフローは重複のため削除済み。
 - **Release Build**（`release-build.yml`）＝Compose 版の release APK（debug 鍵署名の動作確認用）。`v*` タグ push で自動、
   または手動実行（`upload_apk`）。Godot 版の release は Godot 本体が要るため下の Godot UI Check（`build_release`）で作る。
-- **Godot UI Check**（`.github/workflows/godot-ui-check.yml`）は push/pull_request で自動起動しない。
-  Godot 4.5.1 本体・NDK26.1.10909125・CMake3.22.1 を導入済みの `magi-godot` ラベル付き self-hosted runner でのみ
-  `workflow_dispatch` 手動実行する（GitHub ホストランナーは Godot 本体を持たず、CI のたびに取得・ライセンス許諾するのは
-  非現実的なため）。GDScript 構文・シーン参照の静的確認 → Godot headless smoke → JVM ホストテスト → Kotlin 単体テスト
-  （接続層）→ `-PmagiGodot=true` 付き `assembleDebug` を一続きで行い、失敗時のみログを、成功時は任意で debug APK を
-  artifact として残す。runner 側に `GODOT_EXECUTABLE`・`ANDROID_SDK_ROOT` の設定が必要（無ければジョブが明示的に失敗する）。
-  このワークフロー自体の実行実績は本移行時点で未実施（`docs/godot-ui-migration.md` 参照）。
+- **Godot UI Check**（`.github/workflows/godot-ui-check.yml`）＝`-PmagiGodot=true` 経路の唯一の CI。GitHub ホストランナーで
+  Godot 4.5.1 Linux 版を公式リリースから取得（`SHA512-SUMS.txt` の値を env に固定・`actions/cache`）し、GDScript 静的確認 →
+  `--import` → headless smoke（`godot/tools/headless_smoke.gd`）→ JVM ホストテスト → `testDebugUnitTest` → `assembleDebug`
+  （`magi.pck` 生成込み。手動実行では `assembleRelease` も）を main / `claude/**` への push・main への PR・手動で走らせる。
+  PCK は export templates 不要の `godot/tools/build_pck.gd`（`PCKPacker`）で作る。
+  旧: `magi-godot` ラベルの self-hosted runner 専用・手動のみだったが、runner が用意できず `queued` のまま一度も走らなかった
+  （2026-09-15）。Godot を上げるときは `GODOT_VERSION`・`GODOT_ZIP_SHA512`・`app/build.gradle.kts` の AAR 版数を同時に更新。
 - 監視: `api.github.com/repos/ichirocc/magi7ichiro-fork/actions/runs?head_sha=<sha>`（status / conclusion）。失敗 step は `/actions/runs/{id}/jobs`。
   CI ログ本体は results-receiver 上で取得不可＝コンパイルエラーは目視＋静的チェック（波括弧・フィールド名照合）で見つける。
 - ビルド約 4〜5 分 → debug-key APK 約 10.9MB。変更ごとに `versionCode++` と `versionName`（`app/build.gradle.kts`）。
