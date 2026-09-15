@@ -184,10 +184,8 @@ jobs:
           PY
           apk=app/build/outputs/apk/debug/app-debug.apk
           unzip -l "$apk" > build/ci-logs/apk-contents.txt
-          grep -E "assets/magi\.pck$" build/ci-logs/apk-contents.txt || { echo "::error::APK に assets/magi.pck が無い"; exit 1; }
-          grep -E "lib/arm64-v8a/libgodot_android\.so$" build/ci-logs/apk-contents.txt || { echo "::error::APK に lib/arm64-v8a/libgodot_android.so が無い"; exit 1; }
-          grep -E "lib/arm64-v8a/libmagi_native\.so$" build/ci-logs/apk-contents.txt || { echo "::error::APK に lib/arm64-v8a/libmagi_native.so が無い"; exit 1; }
-          echo "OK: launcher / magi.pck / libgodot_android.so / libmagi_native.so"
+          # 必須エントリ（magi.pck / libgodot_android / libmagi_native / libc++_shared）と .so の非圧縮・16KiB 整列
+          python3 tools/check_apk_native_libs.py "$apk"
 
       # release も debug 鍵署名の動作確認用（app/build.gradle.kts の buildTypes.release）。手動実行時のみ。
       - name: Godot組込みAPKビルド（assembleRelease）

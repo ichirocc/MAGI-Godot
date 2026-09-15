@@ -1,5 +1,7 @@
 # 作業記録の索引（見出し一覧）
 
+- 実機「起動直後にクラッシュ」への起動診断（3.550.0）。`MagiStartupGuard`＝起動段階マーカー・未捕捉例外記録・次回起動時の
+  診断画面（OpenGL 互換切替付き）、PCK を filesDir へ複製し絶対パスで渡す、CI で `.so` の 16KiB 整列検査 → `docs/history/3.4xx.md`
 - Compose UI を削除し Godot 版に一本化（3.549.0、ユーザー決定）。`MainActivity`・`ui/` Composable 17 本・会話バブルを削除、
   `MagiGodotActivity` を唯一の LAUNCHER に、`magiGodot` フラグ撤去、CI は Godot UI Check が主 → `docs/history/3.4xx.md`
 - シフト種別の色のみ外部へ出力・取込む機能を追加（3.547.0）。`ShiftColorsCsvIO`（記号,色）、

@@ -34,6 +34,13 @@ the former Jetpack Compose UI was removed in 3.549.0.
 | [`CLAUDE.md`](./CLAUDE.md) | 引き継ぎ・直近の状態・作業の進め方（grilling 等） |
 | [`docs/changelog.md`](./docs/changelog.md) | **版ごと（3.xxx.0単位）の詳細な変更履歴アーカイブ**（`CLAUDE.md`から切り出し。個別の修正内容・調査記録・実測値を確認したい時だけ検索して読む。通常のセッション開始時には注入されない） |
 
+**最終更新**：2026-09-15（3.550.0＝Godot UI移行・第7段: 実機「起動直後にクラッシュ」報告への起動診断。
+`MagiStartupGuard` が起動段階（activity→viewmodel→engine→ui）と未捕捉例外を filesDir に記録し、前回 ui に到達していなければ
+`MagiGodotActivity` が Godot を起動する前に診断画面（到達段階・例外・Godot ログ末尾・OpenGL 互換レンダラー切替）を出す。
+PCK は assets から filesDir へ複製し絶対パスで `--main-pack` に渡す（失敗時のみ `res://`）。`project.godot` でファイルログ有効化、
+`pck` を非圧縮同梱。CI は `tools/check_apk_native_libs.py` で `libc++_shared.so` の同梱と `.so` の非圧縮・16KiB 整列を検査。
+原因は未特定＝診断画面のスクリーンショットで絞る。versionName `3.550.0-godot-ui`）
+
 **最終更新**：2026-09-15（3.549.0＝Godot UI移行・第6段: Compose UI を削除し Godot 版に一本化（ユーザー決定）。
 `MainActivity`・`ui/` の Composable 17 ファイル・`work/BubbleActivity`・`BubbleSupport` を削除、`MagiGodotActivity` を
 `src/main` へ移し Manifest の唯一の LAUNCHER に、`magiGodot` フラグと Compose 依存/プラグインを撤去（`-PgodotExecutable` は常時必須）。

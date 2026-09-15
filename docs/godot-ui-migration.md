@@ -238,6 +238,46 @@ JSON 全文書き出し・SAF 入出力、安定 ID 化、`canonicalBody` のキ
 パース確認。Android 実ビルドはこの環境では不可＝作業ブランチへの push で走る Godot UI Check（testDebugUnitTest →
 assembleDebug → 起動構成 assert）が確認手段。実機での起動は引き続き未実施。
 
+## 第7段: 実機「起動直後にクラッシュ」への対応＝起動診断（3.550.0）
+
+第6段までの APK（ad82143 の成果物）が実機で起動直後に落ちたとの報告。logcat は得られない前提で、
+**原因を画面に出す仕組み**と**疑わしい経路の回避**を同時に入れた（原因は未特定＝次の実機報告で絞る）。
+
+**MagiStartupGuard（`app/src/main/java/com/magi/app/godot/MagiStartupGuard.kt`）**
+- 起動段階を `filesDir/magi_startup_stage.txt` に記録: `activity`（Activity 生成）→ `viewmodel`（MagiViewModel・MagiBridge 生成）→
+  `engine`（`GodotFragment.commitNow()` 復帰＝`Godot.initEngine`/レンダービュー生成が済んだ）→ `ui`（GDScript が最初に
+  `magiSnapshot()`/`magiDispatch()` を呼んだ＝画面が Kotlin まで到達）。
+- `Thread.setDefaultUncaughtExceptionHandler` で未捕捉例外を `filesDir/magi_crash.txt` に残してから既定ハンドラへ渡す。
+  ネイティブクラッシュ（SIGSEGV 等）は Java 側で捕まえられないが、到達段階で「どこまで来たか」は分かる。
+- 次の起動で「前回 `ui` に到達していない」または「例外記録がある」なら `MagiGodotActivity` は Godot を起動せず、素の View で
+  診断画面を出す: 版数・端末・レンダラー・到達段階と説明・PCK の状態（assets のサイズ／filesDir 複製）・Java 例外・
+  Godot ログ末尾（`project.godot` の `debug/file_logging/enable_file_logging=true` で `user://logs/` に出る）。
+  ボタンは「そのまま起動」（記録を消して再起動）と「OpenGL 互換レンダラーで起動」（Vulkan 初期化で落ちる端末の退避先。
+  Godot 4.5 の `Godot.kt` は `--rendering-method`/`--rendering-driver` をコマンドラインから読み、ProjectSettings より優先して
+  GL 用レンダービューを選ぶ＝Java 側とネイティブ側の食い違いは起きない）。
+- `launchGodot()` を `try/catch(Throwable)` で包み、`GodotFragment` が拾わない例外（`.so` 読込失敗の `UnsatisfiedLinkError` 等）も
+  同じ診断画面に出す。`GodotFragment.performEngineInitialization` 自身は `IllegalStateException`（PCK 読込失敗・レンダービュー
+  生成失敗）を捕まえてダイアログを出しプロセスを終了する＝この場合も次回起動で `engine`/`viewmodel` 段階として現れる。
+
+**PCK の渡し方を変更**
+- `assets/magi.pck` を `filesDir/magi.pck` へ複製し、絶対パスで `--main-pack` に渡す（Godot 自身の APK 拡張パック経路と同じ形。
+  再複製の判定は versionCode と APK の更新時刻）。複製に失敗したときだけ従来の `res://magi.pck`（AAsset 直読み）へ退避。
+- `app/build.gradle.kts` に `androidResources { noCompress += listOf("pck") }`＝退避経路でも圧縮エントリの seek を避ける。
+
+**CI の検証を強化**（`tools/check_apk_native_libs.py`、`godot-ui-check.yml` と `godot-release-build.yml` の両方から実行）
+- 必須エントリに `lib/arm64-v8a/libc++_shared.so`（`libgodot_android.so` の依存）を追加。
+- `.so` が非圧縮（STORED）で、データ先頭が 16KiB 境界に載っていることを APK のローカルヘッダから検査
+  （Android 16 の 16KB ページ端末は APK から直接 mmap する。ELF の LOAD 整列は確認済みだったが APK 内整列は未確認だった）。
+- `assets/magi.pck` が非圧縮であること。
+
+**確認済み（Godot AAR のバイトコード読解）**: `GodotFragment.onCreate` は `parentHost.getGodot()` が null なら
+`Godot.getInstance(context)` を使う（本 Activity の `getGodot()` はフラグメント生成前は null＝想定どおり）。`Godot.initEngine` は
+`--main-pack` を含むコマンドラインをそのまま `GodotLib.setup` へ渡す。`--use_apk_expansion` を渡していないので expansion
+downloader 経路（`IllegalArgumentException`）には入らない。
+
+**次の実機報告で見るもの**: 診断画面のスクリーンショット（到達段階＋例外／Godot ログ）。`viewmodel` 止まりなら
+`.so`/PCK/レンダラー、`engine` 止まりなら描画開始か GDScript（Godot ログに出る）、例外記録があればその内容。
+
 ## 参照した既存仕様
 
 `app/src/main/java/com/magi/app/ui/{MagiViewModel,MagiUiState,MagiScheduleViews,Ws1Editor,

@@ -21,8 +21,8 @@ android {
         applicationId = "com.magi.app"
         minSdk = 36
         targetSdk = 36
-        versionCode = 769
-        versionName = "3.549.0-godot-ui"
+        versionCode = 770
+        versionName = "3.550.0-godot-ui"
         // [ネイティブ加速] minSdk 36（Android 16+）の実機は arm64 のみ対象で十分。
         //   .so が無い環境でも NativeBridge が false を返し Kotlin パスで全機能が動く。
         ndk { abiFilters += listOf("arm64-v8a") }
@@ -59,6 +59,9 @@ android {
     // （公式ドキュメント確認: "You don't need to explicitly set jvmTarget... it defaults to
     // android.compileOptions.targetCompatibility"）。
     packaging { resources { excludes += setOf("/META-INF/{AL2.0,LGPL2.1}") } }
+    // magi.pck は非圧縮で同梱する。MagiStartupGuard が filesDir へ複製できず res:// で直読みする退避経路では
+    // Godot が AAsset で seek するため、圧縮エントリだと展開し直しが走る。
+    androidResources { noCompress += listOf("pck") }
 
     // This release variant is a personal-test APK signed with the debug key (see buildTypes.release),
     // not a Play-store build. `lintVitalRelease` aborts the APK on any *fatal* lint issue, which only
