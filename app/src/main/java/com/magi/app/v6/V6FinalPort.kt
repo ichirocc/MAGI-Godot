@@ -204,10 +204,11 @@ object V6FinalPort {
         seconds <= 10 -> AlgorithmLabel("⚡", "高速", "短時間でサッと作成", "v5")
         seconds <= 30 -> AlgorithmLabel("★", "標準", "速さと品質のバランス", "v5")
         // [実機指摘] 31〜210s は複合（違反集中→研磨）に統一。表示ラベルもプランと同期。
-        seconds <= 210 -> AlgorithmLabel("🧬", "学習+研磨", "RSI違反集中→ALNS研磨", "RSI→ALNS")
+        // [3.551.0] desc は設定画面に出る利用者向け文（内部名 RSI/ALNS を出さない）。tech は内部用・テスト固定。
+        seconds <= 210 -> AlgorithmLabel("🧬", "学習+研磨", "違反集中のあと組み替えで仕上げ", "RSI→ALNS")
         // [3.266.0] 表示ラベルもプラン(Portfolio)と同期。同型RSI++クローン8本でなく、ALNS/RSI/RSI++が
         //   異なる基盤・役割から非同期に探索し、停滞/重複を検知して再配属する。
-        seconds <= 300 -> AlgorithmLabel("🌈", "究極(5分)", "ALNS/RSI/RSI++ 異種並列探索(適応epoch)", "PORTFOLIO")
+        seconds <= 300 -> AlgorithmLabel("🌈", "究極(5分)", "複数の方式を同時に走らせて最良を採用", "PORTFOLIO")
         else -> AlgorithmLabel("🌈", "究極", "最大限の品質 (${seconds / 60}分)", "PORTFOLIO拡張")
     }
 
@@ -289,7 +290,7 @@ object V6FinalPort {
         val plan = optimizationPlan(seconds)
         val busy = buildBusyDetail(state, label.name, mapOf(
             "subtitle" to label.desc,
-            "phaseDesc" to "${label.tech} をNativeエンジンで実行中",
+            "phaseDesc" to "${label.name} で計算中",
             "expectedSec" to "約 ${seconds} 秒",
             "estimatedIter" to "問題サイズに応じて自動調整",
         ))

@@ -34,6 +34,14 @@ the former Jetpack Compose UI was removed in 3.549.0.
 | [`CLAUDE.md`](./CLAUDE.md) | 引き継ぎ・直近の状態・作業の進め方（grilling 等） |
 | [`docs/changelog.md`](./docs/changelog.md) | **版ごと（3.xxx.0単位）の詳細な変更履歴アーカイブ**（`CLAUDE.md`から切り出し。個別の修正内容・調査記録・実測値を確認したい時だけ検索して読む。通常のセッション開始時には注入されない） |
 
+**関連リポジトリ**: `ichirocc/magi7ichiro-fork`（ベース＝Compose 版）／`ichirocc/-MAGI_PC`（C# 移植＝エンジン同値、同日同期）。
+エンジン層 `v6/`・`model/`・`work/`・`MagiViewModel*`・`UnifiedViolationChecker`・C++・起動診断・CI 検査はベースと**相互互換**（同値）を保ち、
+どちらで直しても同日にもう一方へ取り込む。食い違いの正は Kotlin エンジン＝ベース、UI＝各 repo（3.552.1／3.553.0）。
+
+**最終更新**：2026-09-15（3.553.0＝ベース 3.549.0〜3.552.1 の共有層を取り込み: 画面文言「群」→「グループ」（Kotlin 7 ファイルはベースの
+`e48d016` と同一内容に複写、Godot 画面 5 本も同語）、`V6FinalPort.getAlgorithmLabel`/busy 表示から内部名を除去、設定タブの方式名を
+利用者向け語（おまかせ／高速／組み替え／違反集中／違反集中＋／方式ミックス）に。相互互換の規則を CLAUDE.md/README に記載）
+
 **最終更新**：2026-09-15（3.552.0＝第8段の修正: 3.551.0 は実機で 3 点とも効かなかった。原因は `orientation` の文字列指定（int 化で 0＝横）、
 `content_scale_factor` の `Main::start` による上書き（各画面の `_ready` で再適用）、`get_display_safe_area()` がカットアウトしか含まない
 （Kotlin の `WindowInsets` を `magiInsets()` で渡し `--edge_to_edge` で Godot 側 padding を停止）。ホーム画面に版・画面 px・DPI・倍率・余白を表示。

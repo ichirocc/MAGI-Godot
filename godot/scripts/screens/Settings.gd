@@ -3,6 +3,9 @@ extends "res://scripts/screens/base_screen.gd"
 ## 実行フラグ系（setBlockSwapC3nFilter 等）は UiState に現在値が無く同期表示できないため、この画面では扱わない。
 
 const ALGOS := ["AUTO", "V5", "ALNS", "RSI", "RSI_PLUS", "PORTFOLIO"]
+# 利用者向けの方式名（ベース Compose 版 v6AlgorithmLabel と同じ語。内部名 RSI/ALNS/PORTFOLIO は画面に出さない＝3.551.0）
+const ALGO_LABELS := {"AUTO": "おまかせ", "V5": "高速", "ALNS": "組み替え", "RSI": "違反集中",
+	"RSI_PLUS": "違反集中＋", "PORTFOLIO": "方式ミックス"}
 
 var _accel: CheckBox
 var _parity: CheckBox
@@ -37,7 +40,7 @@ func build_actions(bar: HBoxContainer) -> void:
 	row.add_child(_lbl("方式"))
 	_algo = OptionButton.new()
 	for i in range(ALGOS.size()):
-		_algo.add_item(ALGOS[i], i)
+		_algo.add_item(ALGO_LABELS.get(ALGOS[i], ALGOS[i]), i)
 	_algo.item_selected.connect(func(idx):
 		if not _syncing:
 			run_op("setV6Algorithm", {"algorithm": ALGOS[idx]}))
@@ -61,7 +64,8 @@ func render(state: Dictionary) -> void:
 	var lines := ["[b]設定[/b]"]
 	lines.append("並列数: %d / 予算: %d秒" % [state.get("workers", 0), state.get("budgetSec", 0)])
 	lines.append("ネイティブ加速: %s / パリティ照合: %s" % [state.get("nativeAccel", false), state.get("nativeParity", false)])
-	lines.append("ソフト研磨: %s / 方式: %s" % [state.get("softPolish", false), state.get("v6Algorithm", "")])
+	var algo := str(state.get("v6Algorithm", ""))
+	lines.append("ソフト研磨: %s / 方式: %s" % [state.get("softPolish", false), ALGO_LABELS.get(algo, algo)])
 	lines.append("保存状態: %s" % state.get("saveState", ""))
 	$VBox/Content.text = "\n".join(lines)
 	if _accel == null:

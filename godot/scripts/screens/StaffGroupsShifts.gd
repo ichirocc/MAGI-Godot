@@ -55,12 +55,12 @@ func build_actions(_bar: HBoxContainer) -> void:
 	shift_add.add_child(shift_add_btn)
 	root.add_child(shift_add)
 
-	root.add_child(_section_label("群"))
+	root.add_child(_section_label("グループ"))
 	_group_box = VBoxContainer.new(); root.add_child(_group_box)
 	var group_add := HBoxContainer.new()
 	_group_name_new = LineEdit.new(); _group_name_new.placeholder_text = "名称"; group_add.add_child(_group_name_new)
 	_group_kigou_new = LineEdit.new(); _group_kigou_new.placeholder_text = "記号"; group_add.add_child(_group_kigou_new)
-	var group_add_btn := Button.new(); group_add_btn.text = "群を追加"
+	var group_add_btn := Button.new(); group_add_btn.text = "グループを追加"
 	group_add_btn.pressed.connect(func():
 		if run_op("ws1AddGroup", {"name": _group_name_new.text, "kigou": _group_kigou_new.text}):
 			_group_name_new.text = ""; _group_kigou_new.text = "")
@@ -76,7 +76,7 @@ func render(state: Dictionary) -> void:
 	var staff: Array = structure.get("staff", [])
 	var shifts: Array = structure.get("shifts", [])
 	var groups: Array = structure.get("groups", [])
-	$VBox/Content.text = "[b]職員 / シフト / 群[/b]（職員%d名・シフト%d種・群%d）" % [staff.size(), shifts.size(), groups.size()]
+	$VBox/Content.text = "[b]職員 / シフト / グループ[/b]（職員%d名・シフト%d種・グループ%d）" % [staff.size(), shifts.size(), groups.size()]
 	if _staff_box == null:
 		return  # build_actions未実行（初回render前）
 

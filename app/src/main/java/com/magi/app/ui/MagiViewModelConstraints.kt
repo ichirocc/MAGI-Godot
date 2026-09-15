@@ -53,14 +53,14 @@ fun MagiViewModel.constraintFamilies(): List<ConstraintFamilyView> {
         // [3.542.0] 希望で固定した X の前日だけ Y を禁止（HARD）。素の並び禁止は cons3n。
         ConstraintFamilyView("cons3w", "希望の前日に禁止（必ず守る）",
             st.cons3w.map { "${it.wishKigou} の希望の前日は ${it.prevKigou} 禁止" }),
-        ConstraintFamilyView("cons41", "群のレンジ（1日の人数の下限〜上限）",
+        ConstraintFamilyView("cons41", "グループのレンジ（1日の人数の下限〜上限）",
             st.cons41.map { "${it.groupKigou}・${it.shiftKigou}   ${boundLabel(it.l, it.u)}" }),
         // [3.409.18] 「禁止/不可」はラベルとして実態（最軽量のソフト条件＝他の条件と衝突すると
         //   真っ先に譲られる）と逆の約束をするため「できるだけ守る」を見出しへ明示（3.405.0 の言葉版）。
         // [3.427.0] 行タイトルを「吉・休 ✕ 古・休」→「吉の休 ✕ 古の休」（の形）へ。3.409.18 は
         //   羅列が読めない問題を行下の読み下し文で補ったが、タイトル自体を読める形にすれば
         //   文は見出しの「同じ日に不可」と全て重複＝行ごとの文を撤去（7行×2行→7行×1行）。
-        ConstraintFamilyView("cons42", "群ペア禁止（同じ日に不可・できるだけ守る）",
+        ConstraintFamilyView("cons42", "グループペア禁止（同じ日に不可・できるだけ守る）",
             st.cons42.map { "${it.g1Kigou}の${it.s1Kigou} ✕ ${it.g2Kigou}の${it.s2Kigou}" }),
     )
 }
@@ -69,9 +69,9 @@ fun MagiViewModel.constraintFamilies(): List<ConstraintFamilyView> {
 fun MagiViewModel.skillConstraintFamilies(): List<ConstraintFamilyView> {
     val st = state ?: return emptyList()
     return listOf(
-        ConstraintFamilyView("cons41s", "スキル群のレンジ（1日の人数の下限〜上限）",
+        ConstraintFamilyView("cons41s", "スキルグループのレンジ（1日の人数の下限〜上限）",
             st.cons41s.map { "${it.groupKigou}・${it.shiftKigou}   ${boundLabel(it.l, it.u)}" }),
-        ConstraintFamilyView("cons42s", "スキル群ペア禁止（同じ日に不可・できるだけ守る）",
+        ConstraintFamilyView("cons42s", "スキルグループペア禁止（同じ日に不可・できるだけ守る）",
             st.cons42s.map { "${it.g1Kigou}の${it.s1Kigou} ✕ ${it.g2Kigou}の${it.s2Kigou}" }),
     )
 }
@@ -79,11 +79,11 @@ fun MagiViewModel.skillConstraintFamilies(): List<ConstraintFamilyView> {
 fun MagiViewModel.skillGroupKigouList(): List<String> = state?.skillGroups?.map { it.kigou } ?: emptyList()
 fun MagiViewModel.addCons41s(groupKigou: String, shiftKigou: String, l: String, u: String) {
     val st = state ?: return
-    logOp("I", "制約追加(スキル群回数): $groupKigou $shiftKigou ${l.trim()}〜${u.trim()}"); mutateConstraints(st.copy(cons41s = st.cons41s + C41Row(groupKigou, shiftKigou, l.trim(), u.trim())))
+    logOp("I", "制約追加(スキルグループ回数): $groupKigou $shiftKigou ${l.trim()}〜${u.trim()}"); mutateConstraints(st.copy(cons41s = st.cons41s + C41Row(groupKigou, shiftKigou, l.trim(), u.trim())))
 }
 fun MagiViewModel.addCons42s(g1: String, g2: String, s1: String, s2: String) {
     val st = state ?: return
-    logOp("I", "制約追加(スキル群組合せ禁止): ${g1}${s1} & ${g2}${s2}"); mutateConstraints(st.copy(cons42s = st.cons42s + C42Row(g1, g2, s1, s2)))
+    logOp("I", "制約追加(スキルグループ組合せ禁止): ${g1}${s1} & ${g2}${s2}"); mutateConstraints(st.copy(cons42s = st.cons42s + C42Row(g1, g2, s1, s2)))
 }
 
 fun MagiViewModel.addCons1(day1: String, shiftKigou: String, day2: String) {
@@ -98,12 +98,12 @@ fun MagiViewModel.addCons2(shiftKigou: String, count: String) {
 
 fun MagiViewModel.addCons41(groupKigou: String, shiftKigou: String, l: String, u: String) {
     val st = state ?: return
-    logOp("I", "制約追加(群回数): $groupKigou $shiftKigou ${l.trim()}〜${u.trim()}"); mutateConstraints(st.copy(cons41 = st.cons41 + C41Row(groupKigou, shiftKigou, l.trim(), u.trim())))
+    logOp("I", "制約追加(グループ回数): $groupKigou $shiftKigou ${l.trim()}〜${u.trim()}"); mutateConstraints(st.copy(cons41 = st.cons41 + C41Row(groupKigou, shiftKigou, l.trim(), u.trim())))
 }
 
 fun MagiViewModel.addCons42(g1: String, g2: String, s1: String, s2: String) {
     val st = state ?: return
-    logOp("I", "制約追加(群組合せ禁止): ${g1}${s1} & ${g2}${s2}"); mutateConstraints(st.copy(cons42 = st.cons42 + C42Row(g1, g2, s1, s2)))
+    logOp("I", "制約追加(グループ組合せ禁止): ${g1}${s1} & ${g2}${s2}"); mutateConstraints(st.copy(cons42 = st.cons42 + C42Row(g1, g2, s1, s2)))
 }
 
 fun MagiViewModel.addCons3w(wishKigou: String, prevKigou: String) {

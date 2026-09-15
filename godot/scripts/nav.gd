@@ -15,7 +15,7 @@ const SCENES := {
 }
 
 const TAB_LABELS := {
-	"home": "ホーム", "schedule": "勤務表", "staff": "職員/群",
+	"home": "ホーム", "schedule": "勤務表", "staff": "職員/グループ",
 	"wishes": "希望/回数", "skills": "担当/スキル", "constraints": "制約",
 	"analysis": "分析", "settings": "設定", "json": "JSON",
 	"undo_export": "取消/保存",

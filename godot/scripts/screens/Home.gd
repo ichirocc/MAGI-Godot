@@ -31,7 +31,7 @@ func render(state: Dictionary) -> void:
 	var lines := []
 	lines.append("[b]MAGI ShiftOptimizer[/b]")
 	lines.append("読込済み: %s" % loaded)
-	lines.append("職員 %d / 日数 %d / シフト種 %d / 群 %d" % [
+	lines.append("職員 %d / 日数 %d / シフト種 %d / グループ %d" % [
 		state.get("staff", 0), state.get("days", 0), state.get("shifts", 0), state.get("groups", 0)])
 	lines.append("実行中: %s / エンジン実行済: %s" % [running, state.get("engineRan", false)])
 	lines.append("HARD違反 %d / SOFT重み付き %.1f" % [state.get("bestHard", 0), state.get("weightedScore", 0.0)])

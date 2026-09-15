@@ -24,10 +24,10 @@ func build_actions(_bar: HBoxContainer) -> void:
 	$VBox.add_child(scroll)
 	$VBox.move_child(scroll, $VBox.get_children().find($VBox/Content) + 1)
 
-	root.add_child(_lbl("担当可否（群 × シフト。タップで切替）"))
+	root.add_child(_lbl("担当可否（グループ × シフト。タップで切替）"))
 	_canDo_box = GridContainer.new(); root.add_child(_canDo_box)
 
-	root.add_child(_lbl("適切回数 apt（群 × シフト。空欄=目標なし）"))
+	root.add_child(_lbl("適切回数 apt（グループ × シフト。空欄=目標なし）"))
 	_apt_box = GridContainer.new(); root.add_child(_apt_box)
 
 	root.add_child(_lbl("スキル区分"))
@@ -57,7 +57,7 @@ func render(state: Dictionary) -> void:
 	var skillGroups: Array = structure.get("skillGroups", [])
 	var groupShift: Array = structure.get("groupShift", [])
 	var groupShiftApt: Array = structure.get("groupShiftApt", [])
-	$VBox/Content.text = "[b]担当・スキル[/b] 群%d x シフト%d / スキル区分%d" % [groups.size(), shifts.size(), skillGroups.size()]
+	$VBox/Content.text = "[b]担当・スキル[/b] グループ%d x シフト%d / スキル区分%d" % [groups.size(), shifts.size(), skillGroups.size()]
 	if _canDo_box == null:
 		return
 

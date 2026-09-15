@@ -58,7 +58,7 @@ fun MagiViewModel.ws1SetGroupShift(g: Int, k: Int, allowed: Boolean) {
     if (ns === st) {
         // [3.484.0] 単一セルでも休は外せない（列一括と同じ理由・同じ案内）。
         if (!allowed && k == restShiftIndex(st)) {
-            notify("「休」はどのグループからも外せません（担当できるシフトが無い群を作らないため）", "W")
+            notify("「休」はどのグループからも外せません（担当できるシフトが無いグループを作らないため）", "W")
         }
         return
     }
@@ -80,7 +80,7 @@ fun MagiViewModel.ws1SetGroupShiftColumn(k: Int, allowed: Boolean) {
     val ns = Ws1Ops.setGroupShiftColumn(st, k, allowed)
     if (ns === st) {
         if (!allowed && k == restShiftIndex(st)) {
-            notify("「休」はどのグループからも外せません（担当できるシフトが無い群を作らないため）", "W")
+            notify("「休」はどのグループからも外せません（担当できるシフトが無いグループを作らないため）", "W")
         }
         return
     }

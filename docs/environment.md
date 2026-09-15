@@ -12,19 +12,22 @@
 - ワークフローは 5 本（3.549.0 で Compose 版の V6 Engine Check / Release Build を削除）: **Godot UI Check**（主 CI）／
   **Godot Release Build**／**Design Lint**／**Native Parity Check**／**cleanup-artifacts**。ブランチ push で走るのは
   Godot UI Check / Design Lint / Native Parity Check（`concurrency: cancel-in-progress`＝同一ブランチへ
-  連続 push すると先行実行はキャンセルされ、コミット一覧では ❌ に見える。失敗と区別するには Actions の結論を見る）。
+  連続 push すると先行実行はキャンセルされ、コミット一覧では ❌ に見える。同一 SHA を別ブランチへ push した場合も同様。
+  失敗ではないので run の conclusion（`cancelled`）で判別する。取り消された run を再実行すれば表示は ✅ に戻る）。
 - **Godot UI Check**（`.github/workflows/godot-ui-check.yml`）＝主 CI。GitHub ホストランナーで
   Godot 4.5.1 Linux 版を公式リリースから取得（`SHA512-SUMS.txt` の値を env に固定・`actions/cache`）し、GDScript 静的確認 →
   `--import` → headless smoke（`godot/tools/headless_smoke.gd`）→ JVM ホストテスト → `testDebugUnitTest` → `assembleDebug`
   （`magi.pck` 生成込み。手動実行では `assembleRelease` も）→ 起動構成 assert（LAUNCHER が `MagiGodotActivity` のみ／APK に
-  `magi.pck`・`libgodot_android.so`・`libmagi_native.so`）を main / `claude/**` への push・main への PR・手動で走らせる。
+  `magi.pck`・`libgodot_android.so`・`libmagi_native.so`・`libc++_shared.so`、`.so` の非圧縮＋16KiB 整列＝`tools/check_apk_native_libs.py`）
+  を main / `claude/**` への push・main への PR・手動で走らせる。
   `app/build.gradle.kts` は `-PgodotExecutable` が無いと設定段階で落ちる（UI は Godot 版のみ）。
   PCK は export templates 不要の `godot/tools/build_pck.gd`（`PCKPacker`）で作る。
   旧: `magi-godot` ラベルの self-hosted runner 専用・手動のみだったが、runner が用意できず `queued` のまま一度も走らなかった
   （2026-09-15）。Godot を上げるときは `GODOT_VERSION`・`GODOT_ZIP_SHA512`・`app/build.gradle.kts` の AAR 版数を同時に更新。
 - **Godot Release Build**（`godot-release-build.yml`）＝release APK（debug 鍵署名の動作確認用）。`v*` タグ push で自動、
   手動実行では `upload_apk`（＋`build_debug` で debug も）。Godot 本体は Godot UI Check と同じ取得手順（sha512 固定・cache）。
-  起動構成 assert を release APK にも掛ける。artifact 名は `magi-godot-release-<ref>-<sha>`。
+  起動構成 assert を release APK にも掛ける。artifact 名は `magi-godot-release-<ref>-<sha>`（`<ref>` はブランチ名の `/` を `-` に
+  置換した `SAFE_REF`。artifact 名に `/` は使えず、`continue-on-error` だと成果物 0 件が緑のまま隠れる＝run #3 の実例）。
 - **Design Lint**（`design-lint.yml`）＝`tools/design_lint.py`（P5 テンプレート食い込み・P6 message severity・P7 文字化け・
   P9 ジョブ解放・P10 記号比較。Compose 向けの P1〜P4/P8/P11/P12 は対象なし）。
 - **Native Parity Check**（`native-parity.yml`）＝C++ `magi_native.cpp` と Kotlin `Evaluator.fullEval` の言語跨ぎ照合。

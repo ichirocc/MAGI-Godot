@@ -57,7 +57,7 @@ class ConstraintHelpTest {
         for (k in listOf("cons41", "cons42")) {
             val v = constraintHelp.getValue(k)
             assertTrue("$k が勤務グループ所属で数えることを言っていません", "勤務グループの所属だけを見" in v)
-            assertTrue("$k が兄弟のスキル群制約と別物だと言っていません", "別の制約" in v && "スキル群" in v)
+            assertTrue("$k が兄弟のスキルグループ制約と別物だと言っていません", "別の制約" in v && "スキルグループ" in v)
         }
         for (k in listOf("cons41s", "cons42s")) {
             val v = constraintHelp.getValue(k)

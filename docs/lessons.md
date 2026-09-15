@@ -134,6 +134,11 @@
 | C++ / JNI | **できる** | `tools/native/host_parity_bench.cpp` を g++ で実ビルド・実行（mismatch=0）。CI にも配線済み |
 | UI（Compose）・ViewModel・WorkManager | **できない** | 括弧均衡・シンボルのスコープ逆引き・呼び出し側シグネチャの静的確認まで。**最終判定は CI**。実行の所有権・kill 復元のような並行性はエミュレータ/実機でしか確かめられない |
 
+**`hosttest.sh` は Android 依存ファイル（`MagiGodotActivity`・`MagiBridge`・`MagiViewModel*`・Worker）をコンパイルしない**
+（Godot 第3段の実例）。「メソッド名が存在する」の grep 確認だけでは、パッケージ名（`V6Algorithm` の `v6`）・プロパティ名
+（`uiState` vs `ui`）・拡張関数の import 漏れを検出できず CI で初めて落ちた。ベースへ移植した起動診断でも同型
+（ローカル変数 `text` が `Button.text` を隠す、ベース CI run 1075）。呼び出し側を書いたら宣言のパッケージ・型・レシーバまで突き合わせる。
+
 **実機のログが得られない前提で作る**（3.550.0）。Godot 版 APK が「起動直後にクラッシュ」と報告されたが logcat は来ない。
 机上の消去法（ELF 整列・API 整合・PCK 解決・例外の捕捉経路）では候補が 4 つ残り確定できなかった。
 次から同じ状況で二手目に迷わないよう、**起動段階のマーカー＋未捕捉例外のファイル記録＋次回起動時の診断画面**を

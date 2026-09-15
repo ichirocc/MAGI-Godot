@@ -18,7 +18,13 @@
 - 2 層番兵（C++ 自己整合＋Kotlin `fullEval` 照合）は正しさの根幹＝削らない。不一致なら `NativeGate` が閉じて Kotlin へ退化する（誤出力でなく速度低下として現れる）。
 - 片手一本指（ドラッグ不可、例外は編集タブのシフト種別/グループ/職員一覧の並び替えのみ＝3.515.6・3.530.0 ユーザー明示指示）・最小デザイン。色/角丸/影は `docs/DESIGN.md` の原則と `tools/design_lint.py`。
 - Serena は名前の分かるシンボルの定義/参照に使い、意味検索・文言・docs は Grep。初期化に失敗したら Grep で進める。
-- リポジトリは `ichirocc/magi7ichiro-fork`（作業用 fork）。環境固有の手順（CI 監視・probe・プラグイン）は `docs/environment.md`。
+- リポジトリは `ichirocc/MAGI-Godot`（Godot UI 版）。ベースは `ichirocc/magi7ichiro-fork`（Compose 版）。エンジン層 `v6/`・`model/`・`work/`・
+  `MagiViewModel*`・`UnifiedViolationChecker`・C++・起動診断・CI 検査は両 repo で**相互互換**（同値）を保つ＝どちらで直しても同日に
+  もう一方へ取り込む。食い違ったときの正は Kotlin エンジンについてベース、UI はそれぞれの repo（ユーザー指示「相互互換」、3.552.1／3.553.0）。
+  環境固有の手順（CI 監視・probe・プラグイン）は `docs/environment.md`。
+- 画面文言は「グループ」（「群」は使わない、3.549.0 ユーザー決定）。例外＝CSV 種別タグ（`群回数`/`群組合せ禁止`、保存データの互換）と
+  コード識別子・business-logic/CLAUDE.md の技術略記（c41=群/日 範囲 等）は据え置き。内部名（RSI/ALNS/PORTFOLIO/破壊再構築）は
+  一般画面に出さない（3.551.0）。
 
 ## 判断の基準
 - チェッカー（`UnifiedViolationChecker`）が source of truth。最適化器（`Evaluator`/`DeltaEvaluator`）は同じ目的関数（Δ×フル整合）。

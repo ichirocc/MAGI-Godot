@@ -1,5 +1,7 @@
 # 作業記録の索引（見出し一覧）
 
+- ベース 3.549.0〜3.552.1 の共有層を取り込み（3.553.0、相互互換）。「群」→「グループ」（Kotlin 7 ファイル複写＋Godot 画面 5 本）、
+  `V6FinalPort` の方式説明から内部名を除去、設定タブの方式名を利用者向け語に、相互互換の規則を CLAUDE.md/README へ → `docs/history/3.4xx.md`
 - 実機レイアウト対応の修正（3.552.0）。3.551.0 は 3 点とも効かず: `orientation` は整数 enum（文字列は 0＝横）、
   `content_scale_factor` は `Main::start` の上書き後に各画面で適用、安全領域はカットアウトのみ→Kotlin の `WindowInsets` を
   `magiInsets()` で渡し `--edge_to_edge`。ホームに版・画面 px・DPI・倍率・余白を表示 → `docs/history/3.4xx.md`
