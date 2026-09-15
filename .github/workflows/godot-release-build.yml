@@ -1,0 +1,192 @@
+name: Godot Release Build
+
+# Godot 版（-PmagiGodot=true）のリリース APK を生成するワークフロー。Compose 版の release-build.yml と対。
+# - v* タグを打つと自動で Godot 版 release APK をビルドし、成果物としてアップロードする。
+# - 手動実行（workflow_dispatch）では upload_apk=true のときだけアップロードする（build_debug=true で debug も）。
+# 検証（smoke / 単体テスト / 起動構成 assert）は godot-ui-check.yml が push/PR ごとに担う。ここは成果物専用で、
+# 起動構成の assert だけは同じものを掛ける（assemble が通っても起動できない APK を配らないため）。
+# 注意: 署名は app/build.gradle.kts の buildTypes.release どおり debug 鍵＝動作確認用。ストア配布には別途 signingConfig。
+# Godot 本体は公式リリースから取得（sha512 固定・cache）。版数を上げるときは godot-ui-check.yml の env と
+# app/build.gradle.kts の AAR 版数も同時に更新する。
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload_apk:
+        description: "生成した Godot 版 APK を artifact としてアップロードする"
+        type: boolean
+        default: true
+      build_debug:
+        description: "release に加えて debug APK もビルドする"
+        type: boolean
+        default: false
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: godot-release-build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: 4.5.1-stable
+  GODOT_ZIP_SHA512: 5bccbed65a94b82c7c319fdb15719ee8113a6e503976cc54e16f1c61fe95f3d74e5e40b8449b5bb89ff7f424574c20af01a4f5ef08b389e4dc338b245185b0b9
+
+jobs:
+  godot-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          # 既定 "tools platform-tools" の旧 tools パッケージは SDK リポジトリから消えており setup 段で exit 1 になる。
+          packages: platform-tools
+
+      - name: Accept Android SDK licenses
+        run: yes | sdkmanager --licenses >/dev/null || true
+
+      - name: Install Android SDK packages
+        run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;26.1.10909125" "cmake;3.22.1"
+
+      - name: Cache Gradle distribution
+        id: gradle-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/gradle-dist
+          key: gradle-dist-9.3.1
+
+      - name: Install Gradle 9.3.1
+        if: steps.gradle-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          wget -q --tries=3 --waitretry=5 -O /tmp/gradle.zip https://services.gradle.org/distributions/gradle-9.3.1-bin.zip
+          echo "b266d5ff6b90eada6dc3b20cb090e3731302e553a27c5d3e4df1f0d76beaff06  /tmp/gradle.zip" | sha256sum -c -
+          mkdir -p "$HOME/gradle-dist"
+          unzip -q /tmp/gradle.zip -d "$HOME/gradle-dist"
+
+      - name: Add Gradle to PATH
+        run: echo "$HOME/gradle-dist/gradle-9.3.1/bin" >> "$GITHUB_PATH"
+
+      - name: Cache Godot
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot-dist
+          key: godot-${{ env.GODOT_VERSION }}-linux-x86_64
+
+      - name: Install Godot ${{ env.GODOT_VERSION }}
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          wget -q --tries=3 --waitretry=5 -O /tmp/godot.zip \
+            "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip"
+          echo "${GODOT_ZIP_SHA512}  /tmp/godot.zip" | sha512sum -c -
+          mkdir -p "$HOME/godot-dist"
+          unzip -q /tmp/godot.zip -d "$HOME/godot-dist"
+          chmod +x "$HOME/godot-dist/Godot_v${GODOT_VERSION}_linux.x86_64"
+
+      - name: Resolve Godot executable
+        id: godot
+        shell: bash
+        run: |
+          path="$HOME/godot-dist/Godot_v${GODOT_VERSION}_linux.x86_64"
+          test -x "$path" || { echo "::error::Godot executable not found at $path"; exit 1; }
+          "$path" --version
+          echo "path=$path" >> "$GITHUB_OUTPUT"
+
+      - name: Godot 版 release APK をビルド（magi.pck 生成込み）
+        shell: bash
+        env:
+          GODOT_BIN: ${{ steps.godot.outputs.path }}
+        run: |
+          mkdir -p build/ci-logs
+          set -o pipefail
+          gradle -PmagiGodot=true -PgodotExecutable="$GODOT_BIN" :app:assembleRelease --no-daemon --stacktrace 2>&1 \
+            | tee build/ci-logs/assembleRelease-godot.log || {
+            echo "===== Build error summary ====="
+            grep -nE "^e: |error:|FAILURE:|What went wrong|Caused by|::error" build/ci-logs/assembleRelease-godot.log | head -60
+            exit 1
+          }
+
+      - name: Godot 版 debug APK をビルド
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_debug }}
+        shell: bash
+        env:
+          GODOT_BIN: ${{ steps.godot.outputs.path }}
+        run: |
+          set -o pipefail
+          gradle -PmagiGodot=true -PgodotExecutable="$GODOT_BIN" :app:assembleDebug --no-daemon --stacktrace 2>&1 \
+            | tee build/ci-logs/assembleDebug-godot.log
+
+      # godot-ui-check.yml と同じ検証。release の合流後 Manifest と APK 内容を必須にする。
+      - name: 起動構成の検証（merged manifest / release APK 内容）
+        shell: bash
+        run: |
+          manifest=$(ls app/build/intermediates/merged_manifest/release/*/AndroidManifest.xml | head -1)
+          echo "merged manifest: $manifest"
+          python3 - "$manifest" <<'PY'
+          import sys, xml.etree.ElementTree as ET
+          A = "{http://schemas.android.com/apk/res/android}"
+          root = ET.parse(sys.argv[1]).getroot()
+          launchers = []
+          for act in root.iter("activity"):
+              name = act.get(A + "name")
+              for f in act.findall("intent-filter"):
+                  cats = [c.get(A + "name") for c in f.findall("category")]
+                  if "android.intent.category.LAUNCHER" in cats:
+                      launchers.append(name)
+          print("LAUNCHER activities:", launchers)
+          if launchers != ["com.magi.app.godot.MagiGodotActivity"]:
+              print("::error::magiGodot=true では MagiGodotActivity だけが LAUNCHER であるべき")
+              sys.exit(1)
+          PY
+          apk=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          unzip -l "$apk" > build/ci-logs/apk-contents-release.txt
+          for f in "assets/magi\.pck" "lib/arm64-v8a/libgodot_android\.so" "lib/arm64-v8a/libmagi_native\.so"; do
+            grep -qE "${f}$" build/ci-logs/apk-contents-release.txt || { echo "::error::APK に ${f//\\/} が無い"; exit 1; }
+          done
+          echo "OK: launcher / magi.pck / libgodot_android.so / libmagi_native.so ($apk)"
+
+      - name: Upload CI logs (on failure only)
+        if: failure()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-release-build-ci-logs
+          path: build/ci-logs
+          if-no-files-found: ignore
+          retention-days: 7
+
+      # タグビルドでは常に、手動実行では upload_apk=true のときのみアップロードする。
+      - name: Upload Godot release APK
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        if: ${{ always() && (startsWith(github.ref, 'refs/tags/v') || inputs.upload_apk) && hashFiles('**/build/outputs/apk/release/**/*.apk') != '' }}
+        with:
+          name: magi-godot-release-${{ github.ref_name }}-${{ github.sha }}
+          path: "**/build/outputs/apk/release/**/*.apk"
+          retention-days: 14
+
+      - name: Upload Godot debug APK
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.upload_apk && inputs.build_debug && hashFiles('**/build/outputs/apk/debug/**/*.apk') != '' }}
+        with:
+          name: magi-godot-debug-${{ github.ref_name }}-${{ github.sha }}
+          path: "**/build/outputs/apk/debug/**/*.apk"
+          retention-days: 14

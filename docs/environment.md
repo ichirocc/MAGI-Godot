@@ -13,7 +13,11 @@
   連続 push すると先行実行はキャンセルされ、コミット一覧では ❌ に見える。失敗と区別するには Actions の結論を見る）。
   Android SDK ワークフローは重複のため削除済み。
 - **Release Build**（`release-build.yml`）＝Compose 版の release APK（debug 鍵署名の動作確認用）。`v*` タグ push で自動、
-  または手動実行（`upload_apk`）。Godot 版の release は Godot 本体が要るため下の Godot UI Check（`build_release`）で作る。
+  または手動実行（`upload_apk`）。
+- **Godot Release Build**（`godot-release-build.yml`）＝Godot 版（`-PmagiGodot=true`）の release APK。`v*` タグ push で自動、
+  手動実行では `upload_apk`（＋`build_debug` で debug も）。Godot 本体は Godot UI Check と同じ取得手順（sha512 固定・cache）。
+  起動構成 assert（LAUNCHER が `MagiGodotActivity` のみ／APK に `magi.pck`・`libgodot_android.so`・`libmagi_native.so`）を
+  release APK にも掛ける。artifact 名は `magi-godot-release-<ref>-<sha>`。
 - **Godot UI Check**（`.github/workflows/godot-ui-check.yml`）＝`-PmagiGodot=true` 経路の唯一の CI。GitHub ホストランナーで
   Godot 4.5.1 Linux 版を公式リリースから取得（`SHA512-SUMS.txt` の値を env に固定・`actions/cache`）し、GDScript 静的確認 →
   `--import` → headless smoke（`godot/tools/headless_smoke.gd`）→ JVM ホストテスト → `testDebugUnitTest` → `assembleDebug`
