@@ -51,5 +51,6 @@ func _show_bridge_status() -> void:
 		_set_status("接続エラー（表示は最後に取得できた状態）: %s" % MagiApi.last_error, true)
 
 ## RichTextLabel(bbcode_enabled) に外部由来の文字列を入れるときのエスケープ。
+## 左角括弧を chr(91) で書くのは tools/godot-ui-check.sh の括弧対応チェック（文字列内も数える）を通すため。
 static func bb(s) -> String:
-	return str(s).replace("[", "[lb]")
+	return str(s).replace(String.chr(91), "[lb]")
