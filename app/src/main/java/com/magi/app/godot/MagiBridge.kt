@@ -5,7 +5,39 @@ import android.os.Looper
 import com.magi.app.ui.MagiViewModel
 import com.magi.app.ui.SaveState
 import com.magi.app.ui.UiState
-import com.magi.app.ui.V6Algorithm
+// ws1系/制約系は MagiViewModelWs1.kt / MagiViewModelConstraints.kt の拡張関数＝別パッケージからは明示 import が要る
+import com.magi.app.ui.addCons1
+import com.magi.app.ui.addCons2
+import com.magi.app.ui.addCons3
+import com.magi.app.ui.addCons3w
+import com.magi.app.ui.addCons41
+import com.magi.app.ui.addCons41s
+import com.magi.app.ui.addCons42
+import com.magi.app.ui.addCons42s
+import com.magi.app.ui.addSkillGroup
+import com.magi.app.ui.editSkillGroup
+import com.magi.app.ui.removeConstraint
+import com.magi.app.ui.removeSkillGroup
+import com.magi.app.ui.setStaffSkill
+import com.magi.app.ui.updateConstraint
+import com.magi.app.ui.ws1AddGroup
+import com.magi.app.ui.ws1AddShift
+import com.magi.app.ui.ws1AddStaff
+import com.magi.app.ui.ws1EditGroup
+import com.magi.app.ui.ws1EditShift
+import com.magi.app.ui.ws1EditStaff
+import com.magi.app.ui.ws1MoveGroupTo
+import com.magi.app.ui.ws1MoveShiftTo
+import com.magi.app.ui.ws1MoveStaffTo
+import com.magi.app.ui.ws1RemoveGroup
+import com.magi.app.ui.ws1RemoveShift
+import com.magi.app.ui.ws1RemoveStaff
+import com.magi.app.ui.ws1ResetGroupApt
+import com.magi.app.ui.ws1SetGroupApt
+import com.magi.app.ui.ws1SetGroupShift
+import com.magi.app.ui.ws1SetGroupShiftColumn
+import com.magi.app.ui.ws1SetGroupShiftRow
+import com.magi.app.v6.V6Algorithm
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.CountDownLatch
@@ -35,7 +67,7 @@ class MagiBridge(private val viewModel: MagiViewModel) {
     /** 現在のUiStateをJSON文字列で返す。呼び出しスレッドは問わない（メインスレッドへ移送して読む）。 */
     fun snapshot(): String = try {
         runOnMain {
-            val ui = viewModel.uiState.value
+            val ui = viewModel.ui.value
             val rev = revision.get()
             val json = uiStateToJson(ui)
             val token = MagiBridgeToken.compute(canonicalBody(json), rev)
@@ -74,7 +106,7 @@ class MagiBridge(private val viewModel: MagiViewModel) {
                 // （setCell / ws1Move* / ws1Remove* 等）は staffNames・structure の並びが本文ハッシュに
                 // 入るため、並び替え後に古い添字で来た操作はここで弾かれる。stop 等の緊急操作は例外。
                 if (op !in MagiOpWhitelist.staleTokenExempt) {
-                    val curBody = canonicalBody(uiStateToJson(viewModel.uiState.value))
+                    val curBody = canonicalBody(uiStateToJson(viewModel.ui.value))
                     if (!MagiBridgeToken.verify(token, curBody, revision.get())) {
                         return@runOnMain errorJson("stale token: snapshot changed since this token was issued")
                     }
@@ -82,7 +114,7 @@ class MagiBridge(private val viewModel: MagiViewModel) {
                 try {
                     invokeOp(op, args)
                     val rev = revision.incrementAndGet()
-                    val json = uiStateToJson(viewModel.uiState.value)
+                    val json = uiStateToJson(viewModel.ui.value)
                     val body = canonicalBody(json)
                     val newToken = MagiBridgeToken.compute(body, rev)
                     JSONObject().apply {
@@ -171,12 +203,12 @@ class MagiBridge(private val viewModel: MagiViewModel) {
             "findFixSuggestions" -> viewModel.findFixSuggestions()
             "applyFixSuggestion" -> {
                 val idx = args.getInt("suggestionIndex")
-                viewModel.uiState.value.fixSuggestions.getOrNull(idx)?.let { viewModel.applyFixSuggestion(it) }
+                viewModel.ui.value.fixSuggestions.getOrNull(idx)?.let { viewModel.applyFixSuggestion(it) }
                     ?: throw IllegalArgumentException("suggestionIndex out of range: $idx")
             }
             "applySettingFix" -> {
                 val idx = args.getInt("issueIndex")
-                viewModel.uiState.value.settingIssues.getOrNull(idx)?.let { viewModel.applySettingFix(it) }
+                viewModel.ui.value.settingIssues.getOrNull(idx)?.let { viewModel.applySettingFix(it) }
                     ?: throw IllegalArgumentException("issueIndex out of range: $idx")
             }
             "relaxForbiddenRule" -> viewModel.relaxForbiddenRule(args.getString("seqLabel"))
