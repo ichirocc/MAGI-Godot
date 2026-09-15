@@ -1,0 +1,76 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; background: #FFFFFF; color: #000000; font-family: "Noto Sans JP", "Hiragino Sans", "Yu Gothic UI", system-ui, sans-serif; font-size: 16px; line-height: 23px; -webkit-font-smoothing: antialiased; }
+    a { color: #00504A; } a:hover { color: #003732; }
+    .screen { width: 390px; min-height: 100vh; display: flex; flex-direction: column; background: #FFFFFF; box-sizing: border-box; }
+    .topbar { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #FFFFFF; box-shadow: 0 1px 2px rgba(0,0,0,0.14); }
+    .logo { background: #00504A; color: #FFFFFF; font-size: 17px; font-weight: 700; line-height: 23px; padding: 6px 12px; border-radius: 12px; }
+    .section { font-size: 17px; font-weight: 600; line-height: 23px; color: #16221F; }
+    .badge { margin-left: auto; padding: 6px 12px; border-radius: 12px; font-size: 16px; font-weight: 600; line-height: 23px; }
+    .content { display: flex; flex-direction: column; gap: 12px; padding: 12px 16px 16px; }
+    .card { background: #F3F6F5; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+    .title { font-size: 17px; font-weight: 600; line-height: 23px; }
+    .muted { color: #16221F; font-size: 14px; line-height: 18px; font-weight: 500; }
+    .body { font-size: 16px; line-height: 23px; }
+    .small { font-size: 14px; line-height: 20px; }
+    .btn { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 24px; border-radius: 999px; font-size: 16px; font-weight: 600; background: #00504A; color: #FFFFFF; box-sizing: border-box; }
+    .btn-outline { background: transparent; color: #00504A; border: 1px solid #000000; }
+    .btn-danger { background: #FFDAD4; color: #2D0001; }
+    .btn-sm { min-height: 40px; padding: 0 16px; font-size: 14px; }
+    .chip { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; border-radius: 10px; border: 1px solid #45504D; font-size: 14px; font-weight: 500; line-height: 18px; background: #FFFFFF; box-sizing: border-box; }
+    .chip-on { background: #CDE8E3; border-color: #CDE8E3; color: #05201C; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .seg { display: flex; border: 1px solid #000000; border-radius: 999px; overflow: hidden; }
+    .seg > div { flex: 1; text-align: center; padding: 9px 0; font-size: 14px; font-weight: 500; line-height: 20px; }
+    .seg .on { background: #CDE8E3; color: #05201C; font-weight: 600; }
+    .row { display: flex; align-items: center; gap: 8px; }
+    .rowb { display: flex; align-items: center; gap: 8px; min-height: 48px; }
+    .grow { flex-grow: 1; }
+    .footer { margin-top: auto; display: flex; flex-direction: column; }
+    .cmdbar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: #EDF2F0; box-shadow: 0 -1px 2px rgba(0,0,0,0.10); }
+    .cmd { min-height: 60px; }
+    .nav { display: flex; height: 80px; background: #EDF2F0; }
+    .nav > div { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 14px; font-weight: 500; line-height: 18px; color: #16221F; }
+    .nav .ind { width: 64px; height: 32px; border-radius: 16px; display: flex; align-items: center; justify-content: center; }
+    .nav .on .ind { background: #CDE8E3; }
+    .nav .on { color: #000000; font-weight: 600; }
+    .switch { width: 52px; height: 32px; border-radius: 16px; display: flex; align-items: center; padding: 2px; box-sizing: border-box; }
+    .switch-on { background: #00504A; justify-content: flex-end; }
+    .switch-on .thumb { width: 24px; height: 24px; border-radius: 12px; background: #FFFFFF; margin: 2px; }
+    .switch-off { background: #E3EDEA; border: 2px solid #45504D; justify-content: flex-start; }
+    .switch-off .thumb { width: 16px; height: 16px; border-radius: 8px; background: #45504D; margin: 6px; }
+    .tonal { background: #CDE8E3; color: #05201C; border-radius: 14px; padding: 12px; font-size: 16px; line-height: 23px; }
+    .errbox { background: #FFDAD4; color: #2D0001; border-radius: 12px; padding: 10px; font-size: 14px; line-height: 18px; font-weight: 500; }
+    .bar { height: 8px; border-radius: 4px; background: #E3EDEA; overflow: hidden; }
+    .bar > div { height: 8px; background: #00504A; }
+    .kv { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 16px; line-height: 23px; }
+    .ok { color: #1C5030; font-weight: 700; width: 20px; text-align: center; }
+    .ng { color: #8C0009; font-weight: 700; width: 20px; text-align: center; }
+    .divider { height: 1px; background: #45504D; opacity: 0.35; }
+    .cell { width: 38px; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; box-sizing: border-box; }
+    .namecell { width: 86px; height: 44px; display: flex; align-items: center; padding-left: 8px; font-size: 14px; font-weight: 500; box-sizing: border-box; border-left: 4px solid #8A5CD1; }
+
+  </style>
+</helmet>
+<div class="screen">
+<div class="topbar"><div class="logo">MAGI</div><div class="section">設計書</div><div class="badge" style="background: #BFF0AF; color: #002200;">3.483.0</div></div><div class="content"><div class="card"><div class="row"><div class="title grow">この画面集について</div></div>
+<div class="body">Android 版 MAGI ShiftOptimizer の全5タブ（編集タブは3ドア）を、3.483.0 時点の実装文字列から起こした静的モックアップです。</div>
+<div class="small">・配色：UD固定テーマ（主色 #00504A／面 #FFFFFF／面変種 #E3EDEA／注意 #8C0009）</div>
+<div class="small">・型：Noto Sans JP　見出し17px/600・本文16px・補足14px</div>
+<div class="small">・角丸：チップ10 / ボタン丸 / カード14　・タップ域48dp以上、下部コマンド60dp</div>
+<div class="small">・違反の枠：必須=実線 / 重い調整=破線 / 軽い調整=右上の角マーク</div>
+<div class="muted">職員名はサンプルです。</div>
+</div></div>
+</div>
+</x-dc>
+</body>
+</html>

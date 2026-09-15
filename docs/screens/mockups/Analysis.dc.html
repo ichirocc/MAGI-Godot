@@ -1,0 +1,90 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; background: #FFFFFF; color: #000000; font-family: "Noto Sans JP", "Hiragino Sans", "Yu Gothic UI", system-ui, sans-serif; font-size: 16px; line-height: 23px; -webkit-font-smoothing: antialiased; }
+    a { color: #00504A; } a:hover { color: #003732; }
+    .screen { width: 390px; min-height: 100vh; display: flex; flex-direction: column; background: #FFFFFF; box-sizing: border-box; }
+    .topbar { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #FFFFFF; box-shadow: 0 1px 2px rgba(0,0,0,0.14); }
+    .logo { background: #00504A; color: #FFFFFF; font-size: 17px; font-weight: 700; line-height: 23px; padding: 6px 12px; border-radius: 12px; }
+    .section { font-size: 17px; font-weight: 600; line-height: 23px; color: #16221F; }
+    .badge { margin-left: auto; padding: 6px 12px; border-radius: 12px; font-size: 16px; font-weight: 600; line-height: 23px; }
+    .content { display: flex; flex-direction: column; gap: 12px; padding: 12px 16px 16px; }
+    .card { background: #F3F6F5; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+    .title { font-size: 17px; font-weight: 600; line-height: 23px; }
+    .muted { color: #16221F; font-size: 14px; line-height: 18px; font-weight: 500; }
+    .body { font-size: 16px; line-height: 23px; }
+    .small { font-size: 14px; line-height: 20px; }
+    .btn { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 24px; border-radius: 999px; font-size: 16px; font-weight: 600; background: #00504A; color: #FFFFFF; box-sizing: border-box; }
+    .btn-outline { background: transparent; color: #00504A; border: 1px solid #000000; }
+    .btn-danger { background: #FFDAD4; color: #2D0001; }
+    .btn-sm { min-height: 40px; padding: 0 16px; font-size: 14px; }
+    .chip { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; border-radius: 10px; border: 1px solid #45504D; font-size: 14px; font-weight: 500; line-height: 18px; background: #FFFFFF; box-sizing: border-box; }
+    .chip-on { background: #CDE8E3; border-color: #CDE8E3; color: #05201C; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .seg { display: flex; border: 1px solid #000000; border-radius: 999px; overflow: hidden; }
+    .seg > div { flex: 1; text-align: center; padding: 9px 0; font-size: 14px; font-weight: 500; line-height: 20px; }
+    .seg .on { background: #CDE8E3; color: #05201C; font-weight: 600; }
+    .row { display: flex; align-items: center; gap: 8px; }
+    .rowb { display: flex; align-items: center; gap: 8px; min-height: 48px; }
+    .grow { flex-grow: 1; }
+    .footer { margin-top: auto; display: flex; flex-direction: column; }
+    .cmdbar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: #EDF2F0; box-shadow: 0 -1px 2px rgba(0,0,0,0.10); }
+    .cmd { min-height: 60px; }
+    .nav { display: flex; height: 80px; background: #EDF2F0; }
+    .nav > div { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 14px; font-weight: 500; line-height: 18px; color: #16221F; }
+    .nav .ind { width: 64px; height: 32px; border-radius: 16px; display: flex; align-items: center; justify-content: center; }
+    .nav .on .ind { background: #CDE8E3; }
+    .nav .on { color: #000000; font-weight: 600; }
+    .switch { width: 52px; height: 32px; border-radius: 16px; display: flex; align-items: center; padding: 2px; box-sizing: border-box; }
+    .switch-on { background: #00504A; justify-content: flex-end; }
+    .switch-on .thumb { width: 24px; height: 24px; border-radius: 12px; background: #FFFFFF; margin: 2px; }
+    .switch-off { background: #E3EDEA; border: 2px solid #45504D; justify-content: flex-start; }
+    .switch-off .thumb { width: 16px; height: 16px; border-radius: 8px; background: #45504D; margin: 6px; }
+    .tonal { background: #CDE8E3; color: #05201C; border-radius: 14px; padding: 12px; font-size: 16px; line-height: 23px; }
+    .errbox { background: #FFDAD4; color: #2D0001; border-radius: 12px; padding: 10px; font-size: 14px; line-height: 18px; font-weight: 500; }
+    .bar { height: 8px; border-radius: 4px; background: #E3EDEA; overflow: hidden; }
+    .bar > div { height: 8px; background: #00504A; }
+    .kv { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 16px; line-height: 23px; }
+    .ok { color: #1C5030; font-weight: 700; width: 20px; text-align: center; }
+    .ng { color: #8C0009; font-weight: 700; width: 20px; text-align: center; }
+    .divider { height: 1px; background: #45504D; opacity: 0.35; }
+    .cell { width: 38px; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; box-sizing: border-box; }
+    .namecell { width: 86px; height: 44px; display: flex; align-items: center; padding-left: 8px; font-size: 14px; font-weight: 500; box-sizing: border-box; border-left: 4px solid #8A5CD1; }
+
+  </style>
+</helmet>
+<div class="screen">
+<div class="topbar"><div class="logo">MAGI</div><div class="section">分析</div><div class="badge" style="background: #FFDAD4; color: #2D0001;">必須違反 2</div></div><div class="content"><div class="card"><div class="row"><div class="title grow">分析</div><span class="chip chip-on">計算済み</span></div>
+<div class="title" style="font-size: 16px;">直さないと消えない項目</div>
+<div class="kv"><div class="grow body">人員不足</div><div class="small">1件</div></div>
+<div class="kv"><div class="grow body">禁止の並び</div><div class="small">1件</div></div>
+<div class="kv" style="padding-left: 12px;"><span class="chip" style="background: #FFDAD4; border-color: #FFDAD4; color: #2D0001;">必須</span><div class="grow small">加藤 10/20 Cｱ→A4</div><div class="btn btn-outline btn-sm">直し方を探す</div></div>
+<div class="kv"><div class="grow body">設定の見直し</div><div class="small">23件</div><div class="btn btn-outline btn-sm">設定へ</div></div>
+<div class="divider"></div>
+<div class="title" style="font-size: 16px;">計算後に残っている項目</div>
+<div class="kv"><div class="grow body">期間の制約</div><div class="small">28件（構造的に残ると判定）</div></div>
+<div class="kv"><div class="grow body">適切回数のズレ</div><div class="small">8件</div></div>
+<div class="kv"><div class="grow body">曜日の偏り</div><div class="small">186pt</div></div>
+<div class="muted">※計算後も残る場合があります</div>
+<div class="muted" style="color: #00504A;">▸ 制約充足サマリー（正常 13 / 残り 6）</div>
+</div><div class="card"><div class="row"><div class="title grow">改善の提案</div><div class="btn btn-outline btn-sm">探す</div></div>
+<div class="muted">違反を減らす1手を効果順に提案します。</div>
+<div class="body"><span class="chip">交換</span>　加藤 10/20 Cｱ ⇄ 山本 10/20 A4</div>
+<div class="small">違反 −1（禁止の並び −1）・重み −7000</div>
+<div class="btn">この手を適用</div>
+<div class="body"><span class="chip">単一変更</span>　小林 10/12 Dﾃ → 休</div>
+<div class="small">違反 ±0（人員不足 +1 / 禁止の並び −1）</div>
+<div class="btn btn-outline">この手を適用</div>
+</div></div><div class="footer"><div class="cmdbar"><div class="btn btn-outline cmd" style="padding: 0 20px;">元に戻す</div><div class="btn cmd grow"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M8 5v14l11-7z" fill="currentColor" stroke="none"/></svg><span style="font-size: 17px;">もう一度つくる</span></div></div><div class="nav"><div><div class="ind"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16221F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M4 11 12 4l8 7v9h-5v-6H9v6H4z"/></svg></div><div>ホーム</div></div><div><div class="ind"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16221F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M8 3v4M16 3v4"/></svg></div><div>勤務表</div></div><div><div class="ind"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16221F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M4 20h4l10-10-4-4L4 16z"/><path d="M13 7l4 4"/></svg></div><div>編集</div></div><div class="on"><div class="ind"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#05201C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><rect x="4" y="12" width="4" height="8"/><rect x="10" y="7" width="4" height="13"/><rect x="16" y="3" width="4" height="17"/></svg></div><div>分析</div></div><div><div class="ind"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16221F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg></div><div>設定</div></div></div></div>
+</div>
+</x-dc>
+</body>
+</html>

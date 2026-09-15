@@ -1,0 +1,92 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; background: #FFFFFF; color: #000000; font-family: "Noto Sans JP", "Hiragino Sans", "Yu Gothic UI", system-ui, sans-serif; font-size: 16px; line-height: 23px; -webkit-font-smoothing: antialiased; }
+    a { color: #00504A; } a:hover { color: #003732; }
+    .screen { width: 390px; min-height: 100vh; display: flex; flex-direction: column; background: #FFFFFF; box-sizing: border-box; }
+    .topbar { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #FFFFFF; box-shadow: 0 1px 2px rgba(0,0,0,0.14); }
+    .logo { background: #00504A; color: #FFFFFF; font-size: 17px; font-weight: 700; line-height: 23px; padding: 6px 12px; border-radius: 12px; }
+    .section { font-size: 17px; font-weight: 600; line-height: 23px; color: #16221F; }
+    .badge { margin-left: auto; padding: 6px 12px; border-radius: 12px; font-size: 16px; font-weight: 600; line-height: 23px; }
+    .content { display: flex; flex-direction: column; gap: 12px; padding: 12px 16px 16px; }
+    .card { background: #F3F6F5; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+    .title { font-size: 17px; font-weight: 600; line-height: 23px; }
+    .muted { color: #16221F; font-size: 14px; line-height: 18px; font-weight: 500; }
+    .body { font-size: 16px; line-height: 23px; }
+    .small { font-size: 14px; line-height: 20px; }
+    .btn { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 24px; border-radius: 999px; font-size: 16px; font-weight: 600; background: #00504A; color: #FFFFFF; box-sizing: border-box; }
+    .btn-outline { background: transparent; color: #00504A; border: 1px solid #000000; }
+    .btn-danger { background: #FFDAD4; color: #2D0001; }
+    .btn-sm { min-height: 40px; padding: 0 16px; font-size: 14px; }
+    .chip { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; border-radius: 10px; border: 1px solid #45504D; font-size: 14px; font-weight: 500; line-height: 18px; background: #FFFFFF; box-sizing: border-box; }
+    .chip-on { background: #CDE8E3; border-color: #CDE8E3; color: #05201C; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .seg { display: flex; border: 1px solid #000000; border-radius: 999px; overflow: hidden; }
+    .seg > div { flex: 1; text-align: center; padding: 9px 0; font-size: 14px; font-weight: 500; line-height: 20px; }
+    .seg .on { background: #CDE8E3; color: #05201C; font-weight: 600; }
+    .row { display: flex; align-items: center; gap: 8px; }
+    .rowb { display: flex; align-items: center; gap: 8px; min-height: 48px; }
+    .grow { flex-grow: 1; }
+    .footer { margin-top: auto; display: flex; flex-direction: column; }
+    .cmdbar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: #EDF2F0; box-shadow: 0 -1px 2px rgba(0,0,0,0.10); }
+    .cmd { min-height: 60px; }
+    .nav { display: flex; height: 80px; background: #EDF2F0; }
+    .nav > div { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 14px; font-weight: 500; line-height: 18px; color: #16221F; }
+    .nav .ind { width: 64px; height: 32px; border-radius: 16px; display: flex; align-items: center; justify-content: center; }
+    .nav .on .ind { background: #CDE8E3; }
+    .nav .on { color: #000000; font-weight: 600; }
+    .switch { width: 52px; height: 32px; border-radius: 16px; display: flex; align-items: center; padding: 2px; box-sizing: border-box; }
+    .switch-on { background: #00504A; justify-content: flex-end; }
+    .switch-on .thumb { width: 24px; height: 24px; border-radius: 12px; background: #FFFFFF; margin: 2px; }
+    .switch-off { background: #E3EDEA; border: 2px solid #45504D; justify-content: flex-start; }
+    .switch-off .thumb { width: 16px; height: 16px; border-radius: 8px; background: #45504D; margin: 6px; }
+    .tonal { background: #CDE8E3; color: #05201C; border-radius: 14px; padding: 12px; font-size: 16px; line-height: 23px; }
+    .errbox { background: #FFDAD4; color: #2D0001; border-radius: 12px; padding: 10px; font-size: 14px; line-height: 18px; font-weight: 500; }
+    .bar { height: 8px; border-radius: 4px; background: #E3EDEA; overflow: hidden; }
+    .bar > div { height: 8px; background: #00504A; }
+    .kv { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 16px; line-height: 23px; }
+    .ok { color: #1C5030; font-weight: 700; width: 20px; text-align: center; }
+    .ng { color: #8C0009; font-weight: 700; width: 20px; text-align: center; }
+    .divider { height: 1px; background: #45504D; opacity: 0.35; }
+    .cell { width: 38px; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; box-sizing: border-box; }
+    .namecell { width: 86px; height: 44px; display: flex; align-items: center; padding-left: 8px; font-size: 14px; font-weight: 500; box-sizing: border-box; border-left: 4px solid #8A5CD1; }
+
+  </style>
+</helmet>
+<div class="screen">
+<div class="topbar"><div class="logo">MAGI</div><div class="section">設定</div><div class="badge" style="background: #E3EDEA; color: #16221F;">未計算</div></div><div class="content"><div class="card"><div class="row"><div class="title grow">外観</div></div>
+<div class="muted">配色はユニバーサルデザイン（高コントラスト・白地）固定です。</div>
+<div class="rowb"><div class="body grow">片手モード</div><div class="switch switch-on"><div class="thumb"></div></div></div>
+<div class="rowb"><div class="body grow">勤務表の通常セルに枠線を表示</div><div class="switch switch-off"><div class="thumb"></div></div></div>
+<div class="title" style="font-size: 16px;">表示モード</div>
+<div class="seg"><div class="on">かんたん</div><div class="">プロ</div></div>
+<div class="muted">プロ＝分析の生指標カードと、勤務表の「まとめて割当」を表示します。</div>
+</div><div class="card"><div class="row"><div class="title grow">シフトの表示色</div></div><div class="chips"><span class="chip" style="background: #E5E5E5; border-color: #E5E5E5; color: #000000; font-weight: 700;">休</span><span class="chip" style="background: #4FA8D1; border-color: #4FA8D1; color: #FFFFFF; font-weight: 700;">Pｼ</span><span class="chip" style="background: #B39DDB; border-color: #B39DDB; color: #000000; font-weight: 700;">Dﾃ</span><span class="chip" style="background: #88D49E; border-color: #88D49E; color: #000000; font-weight: 700;">A4</span><span class="chip" style="background: #C8E6C9; border-color: #C8E6C9; color: #000000; font-weight: 700;">Aｱ</span><span class="chip" style="background: #84C4DC; border-color: #84C4DC; color: #000000; font-weight: 700;">Pﾅ</span><span class="chip" style="background: #F4A261; border-color: #F4A261; color: #000000; font-weight: 700;">Cｵ</span><span class="chip" style="background: #FFE0B2; border-color: #FFE0B2; color: #000000; font-weight: 700;">Cｱ</span><span class="chip" style="background: #7EC8E3; border-color: #7EC8E3; color: #000000; font-weight: 700;">B4</span><span class="chip" style="background: #FFF59D; border-color: #FFF59D; color: #000000; font-weight: 700;">有</span></div><div class="muted">タップで色を変更（36色）。</div></div><div class="card"><div class="row"><div class="title grow">違反種別の色</div></div>
+<div class="muted">未設定の種別に効く基準色</div>
+<div class="chips"><span class="chip"><span style="width: 16px; height: 16px; border-radius: 4px; background: #BA1A1A;"></span>必須</span><span class="chip"><span style="width: 16px; height: 16px; border-radius: 4px; background: #E08A1E;"></span>要調整</span></div>
+<div class="rowb"><div class="body grow">種別ごとに個別の色（19種）</div><div style="color: #00504A; font-size: 14px; font-weight: 500;">開く ▸</div></div></div><div class="card"><div class="row"><div class="title grow">データ</div></div>
+<div class="row"><div class="btn btn-outline btn-sm grow">データを開く</div><div class="btn btn-outline btn-sm grow">サンプル</div></div>
+<div class="row"><div class="btn btn-outline btn-sm grow">データを保存</div><div class="btn btn-outline btn-sm grow">いま診断し直す</div></div>
+<div class="row"><div class="btn btn-outline btn-sm grow">CSV取込</div><div class="btn btn-outline btn-sm grow">CSV出力</div></div>
+<div class="muted">コンポーネント別 出力</div>
+<div class="chips"><span class="chip">職員</span><span class="chip">希望</span><span class="chip">制約</span><span class="chip">勤務表</span></div>
+</div><div class="card"><div class="row"><div class="title grow">最適化設定</div></div>
+<div class="muted">計算の制限時間（最長5分）</div>
+<div class="row"><div class="btn btn-outline btn-sm">− 60秒</div><div class="body grow" style="text-align: center; font-weight: 600;">60 秒</div><div class="btn btn-outline btn-sm">＋ 60秒</div></div>
+<div class="small">計算方式: おまかせ（60秒＝違反集中→破壊再構築）</div>
+<div class="chips"><span class="chip chip-on">おまかせ</span><span class="chip">高速</span><span class="chip">破壊再構築</span><span class="chip">違反集中</span><span class="chip">違反集中＋</span><span class="chip">並列(複数案)</span></div>
+<div class="btn btn-outline">バックグラウンドでつくる（閉じても続行）</div>
+<div class="muted">バージョン: 3.483.0-dogfooding-fixes (685)</div>
+</div><div class="card"><div class="row"><div class="title grow">直す優先順位</div></div><div class="small"><b>絶対に守る</b>　担当外シフト ×10000 ・ 希望違反 ×9000 ・ 人員不足 ×8000 ・ 禁止の並び ×7000</div><div class="small"><b>できれば守る</b>　下限割れ ×90 ・ 上限超過 ×45 ・ 回避の並び ×30 ・ 期間の制約 ×30 ・ 人員過剰 ×5</div><div class="small"><b>整える</b>　必須の並び ×3 ・ 推奨の並び ×2 ・ そのほか ×1</div></div><div class="card" style="padding: 8px 16px;"><div class="rowb"><div class="body grow">詳細設定（上級者向け）</div><div style="color: #00504A; font-size: 14px; font-weight: 500;">開く ▸</div></div></div></div><div class="footer"><div class="cmdbar"><div class="btn cmd grow"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M8 5v14l11-7z" fill="currentColor" stroke="none"/></svg><span style="font-size: 17px;">勤務表をつくる</span></div></div><div class="nav"><div><div class="ind"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16221F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M4 11 12 4l8 7v9h-5v-6H9v6H4z"/></svg></div><div>ホーム</div></div><div><div class="ind"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16221F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M8 3v4M16 3v4"/></svg></div><div>勤務表</div></div><div><div class="ind"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16221F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M4 20h4l10-10-4-4L4 16z"/><path d="M13 7l4 4"/></svg></div><div>編集</div></div><div><div class="ind"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16221F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><rect x="4" y="12" width="4" height="8"/><rect x="10" y="7" width="4" height="13"/><rect x="16" y="3" width="4" height="17"/></svg></div><div>分析</div></div><div class="on"><div class="ind"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#05201C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg></div><div>設定</div></div></div></div>
+</div>
+</x-dc>
+</body>
+</html>

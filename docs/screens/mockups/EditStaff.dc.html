@@ -1,0 +1,110 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; background: #FFFFFF; color: #000000; font-family: "Noto Sans JP", "Hiragino Sans", "Yu Gothic UI", system-ui, sans-serif; font-size: 16px; line-height: 23px; -webkit-font-smoothing: antialiased; }
+    a { color: #00504A; } a:hover { color: #003732; }
+    .screen { width: 390px; min-height: 100vh; display: flex; flex-direction: column; background: #FFFFFF; box-sizing: border-box; }
+    .topbar { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #FFFFFF; box-shadow: 0 1px 2px rgba(0,0,0,0.14); }
+    .logo { background: #00504A; color: #FFFFFF; font-size: 17px; font-weight: 700; line-height: 23px; padding: 6px 12px; border-radius: 12px; }
+    .section { font-size: 17px; font-weight: 600; line-height: 23px; color: #16221F; }
+    .badge { margin-left: auto; padding: 6px 12px; border-radius: 12px; font-size: 16px; font-weight: 600; line-height: 23px; }
+    .content { display: flex; flex-direction: column; gap: 12px; padding: 12px 16px 16px; }
+    .card { background: #F3F6F5; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+    .title { font-size: 17px; font-weight: 600; line-height: 23px; }
+    .muted { color: #16221F; font-size: 14px; line-height: 18px; font-weight: 500; }
+    .body { font-size: 16px; line-height: 23px; }
+    .small { font-size: 14px; line-height: 20px; }
+    .btn { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 24px; border-radius: 999px; font-size: 16px; font-weight: 600; background: #00504A; color: #FFFFFF; box-sizing: border-box; }
+    .btn-outline { background: transparent; color: #00504A; border: 1px solid #000000; }
+    .btn-danger { background: #FFDAD4; color: #2D0001; }
+    .btn-sm { min-height: 40px; padding: 0 16px; font-size: 14px; }
+    .chip { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; border-radius: 10px; border: 1px solid #45504D; font-size: 14px; font-weight: 500; line-height: 18px; background: #FFFFFF; box-sizing: border-box; }
+    .chip-on { background: #CDE8E3; border-color: #CDE8E3; color: #05201C; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .seg { display: flex; border: 1px solid #000000; border-radius: 999px; overflow: hidden; }
+    .seg > div { flex: 1; text-align: center; padding: 9px 0; font-size: 14px; font-weight: 500; line-height: 20px; }
+    .seg .on { background: #CDE8E3; color: #05201C; font-weight: 600; }
+    .row { display: flex; align-items: center; gap: 8px; }
+    .rowb { display: flex; align-items: center; gap: 8px; min-height: 48px; }
+    .grow { flex-grow: 1; }
+    .footer { margin-top: auto; display: flex; flex-direction: column; }
+    .cmdbar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: #EDF2F0; box-shadow: 0 -1px 2px rgba(0,0,0,0.10); }
+    .cmd { min-height: 60px; }
+    .nav { display: flex; height: 80px; background: #EDF2F0; }
+    .nav > div { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 14px; font-weight: 500; line-height: 18px; color: #16221F; }
+    .nav .ind { width: 64px; height: 32px; border-radius: 16px; display: flex; align-items: center; justify-content: center; }
+    .nav .on .ind { background: #CDE8E3; }
+    .nav .on { color: #000000; font-weight: 600; }
+    .switch { width: 52px; height: 32px; border-radius: 16px; display: flex; align-items: center; padding: 2px; box-sizing: border-box; }
+    .switch-on { background: #00504A; justify-content: flex-end; }
+    .switch-on .thumb { width: 24px; height: 24px; border-radius: 12px; background: #FFFFFF; margin: 2px; }
+    .switch-off { background: #E3EDEA; border: 2px solid #45504D; justify-content: flex-start; }
+    .switch-off .thumb { width: 16px; height: 16px; border-radius: 8px; background: #45504D; margin: 6px; }
+    .tonal { background: #CDE8E3; color: #05201C; border-radius: 14px; padding: 12px; font-size: 16px; line-height: 23px; }
+    .errbox { background: #FFDAD4; color: #2D0001; border-radius: 12px; padding: 10px; font-size: 14px; line-height: 18px; font-weight: 500; }
+    .bar { height: 8px; border-radius: 4px; background: #E3EDEA; overflow: hidden; }
+    .bar > div { height: 8px; background: #00504A; }
+    .kv { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 16px; line-height: 23px; }
+    .ok { color: #1C5030; font-weight: 700; width: 20px; text-align: center; }
+    .ng { color: #8C0009; font-weight: 700; width: 20px; text-align: center; }
+    .divider { height: 1px; background: #45504D; opacity: 0.35; }
+    .cell { width: 38px; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; box-sizing: border-box; }
+    .namecell { width: 86px; height: 44px; display: flex; align-items: center; padding-left: 8px; font-size: 14px; font-weight: 500; box-sizing: border-box; border-left: 4px solid #8A5CD1; }
+
+  </style>
+</helmet>
+<div class="screen">
+<div class="topbar"><div class="logo">MAGI</div><div class="section">編集</div><div class="badge" style="background: #E3EDEA; color: #16221F;">未計算</div></div><div class="content"><div class="card"><div class="row"><div class="title grow">初期設定の手順</div></div>
+<div class="muted">── 月次条件（毎月）──</div>
+<div class="kv"><div class="ok">✓</div><div class="grow">希望シフト</div><div class="small">32件</div><div style="color: #00504A;">›</div></div>
+<div class="kv"><div class="ok">✓</div><div class="grow">必要人数の例外</div><div class="small">3件（個別指定）</div></div>
+<div class="muted">── 年間マスター（制度が変わったときだけ）──</div>
+<div class="kv"><div class="ok">✓</div><div class="grow">基本情報</div><div class="small">31日 / 10名 / 10シフト / 10グループ</div></div>
+<div class="kv"><div class="ok">✓</div><div class="grow">ルール（並び・人数など）</div><div class="small">22件</div></div>
+<div class="kv"><div class="ok">✓</div><div class="grow">個人の回数範囲</div><div class="small">51件</div></div>
+<div class="tonal">次の一手: 準備OK。画面下の『勤務表をつくる』で作成できます。</div>
+</div><div class="seg"><div class="">月次条件</div><div class="on">職員管理</div><div class="">年間マスター</div></div><div class="muted">入退職・所属・資格スキル（随時変更）。職員の一覧はここだけ。</div><div class="card"><div class="row"><div class="title grow">職員一覧（10名）</div></div><div class="rowb" style="border-top: 1px solid #DAE5E2; padding: 6px 0;">
+<div class="grow" style="display: flex; flex-direction: column; gap: 4px;"><div class="body" style="font-weight: 600;">佐藤 健一</div>
+<div class="row"><div class="muted">グループ 古</div><div class="muted" style="margin-left: 10px;">スキル</div><span class="chip" style="min-height: 40px;">SN ▼</span></div></div>
+<div class="btn btn-outline btn-sm">編集</div><div class="btn btn-outline btn-sm" style="color: #8C0009;">削除</div></div><div class="rowb" style="border-top: 1px solid #DAE5E2; padding: 6px 0;">
+<div class="grow" style="display: flex; flex-direction: column; gap: 4px;"><div class="body" style="font-weight: 600;">山本 昌幸</div>
+<div class="row"><div class="muted">グループ V</div><div class="muted" style="margin-left: 10px;">スキル</div><span class="chip" style="min-height: 40px;">(なし) ▼</span></div></div>
+<div class="btn btn-outline btn-sm">編集</div><div class="btn btn-outline btn-sm" style="color: #8C0009;">削除</div></div><div class="rowb" style="border-top: 1px solid #DAE5E2; padding: 6px 0;">
+<div class="grow" style="display: flex; flex-direction: column; gap: 4px;"><div class="body" style="font-weight: 600;">鈴木 俊陽</div>
+<div class="row"><div class="muted">グループ V</div><div class="muted" style="margin-left: 10px;">スキル</div><span class="chip" style="min-height: 40px;">(なし) ▼</span></div></div>
+<div class="btn btn-outline btn-sm">編集</div><div class="btn btn-outline btn-sm" style="color: #8C0009;">削除</div></div><div class="rowb" style="border-top: 1px solid #DAE5E2; padding: 6px 0;">
+<div class="grow" style="display: flex; flex-direction: column; gap: 4px;"><div class="body" style="font-weight: 600;">小林 美幸</div>
+<div class="row"><div class="muted">グループ B</div><div class="muted" style="margin-left: 10px;">スキル</div><span class="chip" style="min-height: 40px;">SN ▼</span></div></div>
+<div class="btn btn-outline btn-sm">編集</div><div class="btn btn-outline btn-sm" style="color: #8C0009;">削除</div></div><div class="rowb" style="border-top: 1px solid #DAE5E2; padding: 6px 0;">
+<div class="grow" style="display: flex; flex-direction: column; gap: 4px;"><div class="body" style="font-weight: 600;">高橋 直美</div>
+<div class="row"><div class="muted">グループ V</div><div class="muted" style="margin-left: 10px;">スキル</div><span class="chip" style="min-height: 40px;">(なし) ▼</span></div></div>
+<div class="btn btn-outline btn-sm">編集</div><div class="btn btn-outline btn-sm" style="color: #8C0009;">削除</div></div><div class="rowb" style="border-top: 1px solid #DAE5E2; padding: 6px 0;">
+<div class="grow" style="display: flex; flex-direction: column; gap: 4px;"><div class="body" style="font-weight: 600;">田中 雄貴</div>
+<div class="row"><div class="muted">グループ 吉</div><div class="muted" style="margin-left: 10px;">スキル</div><span class="chip" style="min-height: 40px;">(なし) ▼</span></div></div>
+<div class="btn btn-outline btn-sm">編集</div><div class="btn btn-outline btn-sm" style="color: #8C0009;">削除</div></div><div class="rowb" style="border-top: 1px solid #DAE5E2; padding: 6px 0;">
+<div class="grow" style="display: flex; flex-direction: column; gap: 4px;"><div class="body" style="font-weight: 600;">伊藤 勇輝</div>
+<div class="row"><div class="muted">グループ 桐</div><div class="muted" style="margin-left: 10px;">スキル</div><span class="chip" style="min-height: 40px;">(なし) ▼</span></div></div>
+<div class="btn btn-outline btn-sm">編集</div><div class="btn btn-outline btn-sm" style="color: #8C0009;">削除</div></div><div class="rowb" style="border-top: 1px solid #DAE5E2; padding: 6px 0;">
+<div class="grow" style="display: flex; flex-direction: column; gap: 4px;"><div class="body" style="font-weight: 600;">中村 愛</div>
+<div class="row"><div class="muted">グループ S</div><div class="muted" style="margin-left: 10px;">スキル</div><span class="chip" style="min-height: 40px;">NE ▼</span></div></div>
+<div class="btn btn-outline btn-sm">編集</div><div class="btn btn-outline btn-sm" style="color: #8C0009;">削除</div></div><div class="rowb" style="border-top: 1px solid #DAE5E2; padding: 6px 0;">
+<div class="grow" style="display: flex; flex-direction: column; gap: 4px;"><div class="body" style="font-weight: 600;">渡辺 モニカ</div>
+<div class="row"><div class="muted">グループ SN</div><div class="muted" style="margin-left: 10px;">スキル</div><span class="chip" style="min-height: 40px;">NE ▼</span></div></div>
+<div class="btn btn-outline btn-sm">編集</div><div class="btn btn-outline btn-sm" style="color: #8C0009;">削除</div></div><div class="rowb" style="border-top: 1px solid #DAE5E2; padding: 6px 0;">
+<div class="grow" style="display: flex; flex-direction: column; gap: 4px;"><div class="body" style="font-weight: 600;">加藤 アリフ</div>
+<div class="row"><div class="muted">グループ S</div><div class="muted" style="margin-left: 10px;">スキル</div><span class="chip" style="min-height: 40px;">(なし) ▼</span></div></div>
+<div class="btn btn-outline btn-sm">編集</div><div class="btn btn-outline btn-sm" style="color: #8C0009;">削除</div></div>
+<div class="row" style="margin-top: 8px;"><div class="btn btn-outline btn-sm">入職（職員追加）</div><div class="btn btn-outline btn-sm">一括追加（改行区切り）</div></div>
+</div></div><div class="footer"><div class="cmdbar"><div class="btn cmd grow"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M8 5v14l11-7z" fill="currentColor" stroke="none"/></svg><span style="font-size: 17px;">勤務表をつくる</span></div></div><div class="nav"><div><div class="ind"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16221F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M4 11 12 4l8 7v9h-5v-6H9v6H4z"/></svg></div><div>ホーム</div></div><div><div class="ind"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16221F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M8 3v4M16 3v4"/></svg></div><div>勤務表</div></div><div class="on"><div class="ind"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#05201C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M4 20h4l10-10-4-4L4 16z"/><path d="M13 7l4 4"/></svg></div><div>編集</div></div><div><div class="ind"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16221F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><rect x="4" y="12" width="4" height="8"/><rect x="10" y="7" width="4" height="13"/><rect x="16" y="3" width="4" height="17"/></svg></div><div>分析</div></div><div><div class="ind"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16221F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg></div><div>設定</div></div></div></div>
+</div>
+</x-dc>
+</body>
+</html>

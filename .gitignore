@@ -1,0 +1,15 @@
+# Build
+/build/
+/app/build/
+.gradle/
+
+# Generated design-preview / report artifacts (regenerate with the tools/ scripts)
+tools/*.png
+tools/*.pdf
+tools/*.xlsx
+__pycache__/
+
+# Serena（LSP 経由の定義元・参照検索。3.497.2 で試験導入）— 索引キャッシュとメモは端末ごと
+.serena/cache/
+.serena/memories/
+.serena/project.local.yml

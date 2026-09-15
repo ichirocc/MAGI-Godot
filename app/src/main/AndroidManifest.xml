@@ -1,0 +1,59 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- 最適化完了通知（Android 13+ は実行時許可が必要） -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- バックグラウンド最適化を前景サービスとして実行（5分のCPUジョブをOSに止められない） -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- [賢い修正・allowBackup] filesDir(magi_autosave.json/RunFiles入出力等)は職員氏名・勤務割当を
+         含む実データ（golden_state.json 等に実名が入る運用実績あり）。allowBackup="true"(旧値。既定値と
+         同一だが明示)のままだと adb backup（USBデバッグ/rootでの抜き取り経路）と Auto Backup
+         （ユーザーのGoogleドライブへの自動退避）の両方でアプリ外へ複製されうる。アプリ自身が
+         「データを保存」JSON/CSV入出力という明示的なバックアップ・移行手段を既に持つため、
+         OS標準バックアップに頼る機能上の必要が無い＝false化に利用者側の機能損失は無い。 -->
+    <!-- [3.450.0, largeHeap] 実機ログ(2026-12データ)で6回連続の300秒PORTFOLIO実行後、後処理HF80
+         （UnifiedViolationChecker.check()を1回のパスで1000回超呼ぶタイトループ。各呼出が
+         Map/Listフィールド7つを持つ重いViolationReportを新規アロケート）でOutOfMemoryErrorが発生。
+         target/growth limitが268435456B=256MiB=既定ヒープ上限と一致＝largeHeap未設定のまま動いていた。
+         MagiViewModel.kt の catch(Throwable) が捕捉しログに残す設計のためアプリはクラッシュせず失敗を
+         報告していたが（過去バージョンでOOM/StackOverflowを握り潰さない目的の意図的な広いcatch）、
+         根本のヒープ上限そのものを緩和する。設定のみの変更＝エンジン/重み/探索ロジックは不変。 -->
+    <application
+        android:theme="@style/Theme.Magi"
+        android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:allowBackup="false"
+        android:largeHeap="true"
+        android:enableOnBackInvokedCallback="true"
+        android:supportsRtl="true">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <!-- [Android 17 バブル] 会話バブルの展開ビュー。バブルに埋め込む Activity は
+             allowEmbedded / resizeableActivity / documentLaunchMode="always" が必須
+             （これらが無いと BubbleMetadata を付けても通知はバブル化されない）。
+             起動は BubbleSupport の PendingIntent 経由のみのため exported=false。 -->
+        <activity
+            android:name=".work.BubbleActivity"
+            android:exported="false"
+            android:allowEmbedded="true"
+            android:resizeableActivity="true"
+            android:documentLaunchMode="always"
+            android:theme="@style/Theme.Magi" />
+        <!-- [クラッシュ修正/実機報告「閉じても大丈夫でクラッシュ」] targetSdk 34+ では、Worker の
+             setForeground(FOREGROUND_SERVICE_TYPE_DATA_SYNC) に対応する型を WorkManager の前景サービス
+             宣言側にもマージで明記しないと、起動の瞬間に MissingForegroundServiceTypeException で落ちる
+             （権限 FOREGROUND_SERVICE_DATA_SYNC だけでは不足。例外はサービス側スレッドで発生するため
+             コード側の runCatching では捕捉不能）。 -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
+    </application>
+</manifest>

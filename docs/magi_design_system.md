@@ -1,0 +1,451 @@
+# MAGI デザインシステム仕様（実装直前レベル）
+
+添付画像（Time Allowances / Shortcuts / Reminders / Calendar）の“テイスト”を抽出し、
+Apple直コピーではなく **Jetpack Compose / Material 3 に自然に落とし込む** ための実装仕様。
+
+- 対象: `app/src/main/java/com/magi/app/`（純Kotlin / Compose / Material3）
+- ベース方針: 「明るく静かなベースの上に、柔らかいカード・大きな数値・意味ある色分け・
+  見やすいカレンダー・迷わない操作導線を置く」
+- 互換: Material3 の `MaterialTheme.colorScheme / typography / shapes` を一次ソースとし、
+  不足分（spacing・意味色・シフト色・アクセント）だけを `MagiTokens` で補う。
+
+実装状況の凡例: ✅=実装済 / 🟡=部分 / ⬜=未
+
+> 全画面・ポップアップ・メッセージの画像付き定義は [`screen_spec.md`（画面仕様書）](screen_spec.md) を参照。
+
+---
+
+## 0. 導入順（Phase）
+
+| Phase | 内容 | 状況 |
+|---|---|---|
+| A | テーマ整備（色・角丸・タイポ・スペーシング） | ✅ 色/角丸/タイポ（`MainActivity.MagiTheme`） + ✅ `MagiTokens`（spacing/意味色） |
+| B | 共通コンポーネント（カード/タイル/チップ/セグメント/ゲージ/ダイアログ） | 🟡 `MagiSegmentedControl`/`MagiScoreGauge`/`MagiTagChip`/`BigStat`/`Affordance.kt`✅ 他⬜（3.409.10 で実測して訂正） |
+| C | 画面反映（ホーム/勤務表/分析/編集/設定） | 🟡 ホーム✅ 勤務表(非色手がかり3段階)✅ 分析(ゲージ)🟡 編集(3ドア＋年間マスター5節)✅ 設定(冗長除去・見出し統一)✅（**§5 に現物を記載**・3.425.0 で実測して訂正。旧記述の「カレンダー」表示は存在しない） |
+| D | 画面最適化（横/折りたたみ等） | 対象外（ユーザー指示により非対応） |
+
+---
+
+## 1. カラートークン
+
+### 1.1 Material3 colorScheme（実装済 / **値の一次ソース＝`MainActivity.MagiTheme`**）
+
+> **値をここに転記しない**。過去に転記した表は 3.89.0（deep teal への刷新）で全ロールが変わったあとも
+> 旧 Tailwind 系の HEX を載せ続け、**実装と一致しない状態で「実装済」と称していた**。値はコードを見る。
+> ここに置くのは**コードから読み取れない規則**だけ。
+
+- **外観は UD（高コントラスト・白地）固定**（D8 / 3.121.0）。`MagiTheme(mode)` は 0=システム / 1=明 /
+  2=暗 / 3=UD を今も持つが、`MainActivity` は **3 を直指定**し、設定タブのテーマ選択は撤去済み。
+  明/暗の定義は復活可能な形で温存している。
+- ロールの意味: `primary`=CTA・実行中 / `tertiary`=成功・配布可 / `error`=重大違反 /
+  `surfaceVariant`=副次面 / `outline`=境界 / `onSurfaceVariant`=補助テキスト。
+- **純黒本文を使わない・重い影を使わない**（`design_lint` P1/P3 が機械検査）。階層は境界と surface トーンで作る。
+
+### 1.2 MagiTokens 意味色・アクセント（実装済 / `MagiTokens.kt`・`object MagiAccent`）
+
+colorScheme に無い「意味色／シフト色」を一元化する。**値の一次ソースは `MagiAccent`**（同上の理由で転記しない）。
+
+| トークン | 意味 |
+|---|---|
+| `blue` | 実行中 / 早番 |
+| `green` | 成功 / 日勤 |
+| `orange` | 警告 / 夜勤 |
+| `purple` | 遅番 / 個人属性 |
+| `pink` | 希望 / 個人属性 |
+| `red` | 重大違反 / NG制約 |
+| `gray` | 休み / 無効 |
+
+意味付け: 最適化成功=green / 実行中=blue / 警告=orange / 重大違反=red / 希望・個人属性=pink|purple。
+**上の「早番/日勤/…」は色の由来を説明する語であって、シフトの判定には使わない**（次項）。
+
+### 1.3 シフト色の解決規則
+
+`ShiftAppearance.resolveShiftColor(explicit, index)` が唯一の解決点。順に:
+
+1. **利用者の明示色** `state.shiftColors[kigou]` があればそれ（第1優先）。
+2. 無ければ**一覧上の位置**（`index % SHIFT_WORK_PALETTE.size`）。
+3. 位置も不明なら中立色 `NEUTRAL_SHIFT_COLOR`（どのシフトでも同じ＝記号による優劣を持たない）。
+
+> **記号・名称からカテゴリを推測しない**（3.417.0 で撤去）。旧実装は「休/夜/早/遅/日」を含むかで色を決める
+> `shiftAccentFallback(kigou, name)` 相当を持っていたが、①「公」「OFF」の職場では効かない
+> ②「休日」のように複数のカテゴリ語を含む名称は先に書いた条件が勝つだけ、で当てにならない。
+> いまは `resolveShiftColor` の**シグネチャに文字列を渡す余地が無い**＝構造的に再発しない。
+> 同じ型の分岐は `design_lint` **P10** がラチェットで見張る（§4 の禁止事項）。
+
+各ピル/タイルのテキスト色は `ShiftAppearance.pickTextColor(bg)` で黒/白を自動選択。
+
+---
+
+## 2. Shape / Spacing / Elevation
+
+### 2.1 Shapes（実装済 / `MainActivity.MagiTheme`）
+`extraSmall 10 / small 12 / medium 14 / large 18 / extraLarge 24`（dp, RoundedCorner）。
+- chip・入力 = `extraSmall`(10) / カード = `medium`(14) / タイル・シート = `large`(18) /
+  ピル・チップ（完全な丸） = `CircleShape`(999相当)。
+- **任意の dp を新規に使わない**（`design_lint` P4 がラチェット監視・3.409.6 で baseline 0 まで下げ済み）。
+
+### 2.2 Spacing（実装済 / `MagiTokens.kt`・`object MagiSpacing`）
+4dp グリッド。
+
+| 名称 | dp | 用途 |
+|---|---|---|
+| `xs` | 4 | アイコン-文字間 |
+| `sm` | 8 | チップ内・密な行 |
+| `md` | 12 | カード内行間 |
+| `lg` | 16 | カード内余白（標準） |
+| `xl` | 20 | カード内余白（広） |
+| `section` | 20 | セクション（カード）間 |
+| `screenH` | 16 | 画面左右パディング |
+| `section` | 20 | セクション（カード）間 |
+| `screenH` | 16 | 画面左右パディング |
+
+（現状ホームは `horizontal=16` / `spacedBy(20)` で既にこの値に整合。）
+
+### 2.3 Elevation
+影はごく薄く。Card は `CardDefaults.cardElevation(1.dp)` 相当（既定の tonal でも可）。
+過度な影は使わず、面（surface/surfaceVariant）と outline で分離する。
+
+---
+
+## 3. Typography（実装済 / `MainActivity.kt`）
+
+| ロール | size/weight | 用途 |
+|---|---|---|
+| `displaySmall` | 34 Bold | 大数値（スコア等） |
+| `headlineSmall` | 24 Bold | 画面タイトル |
+| `titleLarge` | 20 SemiBold | セクションタイトル |
+| `titleMedium` | 17 SemiBold | カード見出し |
+| `titleSmall` | 16 SemiBold | 行タイトル |
+| `bodyLarge/Medium/Small` | 17/16/14 | 本文・補助 |
+| `labelLarge/Medium` | 16/14 | ボタン・ラベル |
+| `labelSmall` | 14 Medium | チップ・凡例・補足の**下限**（11sp→13→14 と継続して底上げ） |
+
+ルール: 画面タイトル大・本文静か・**数値最大**。`sp` はシステム文字サイズに追従。
+本文・ラベル層は実機の「文字が小さい」指摘を受けて +1sp 底上げ済み（最小 tier=14sp）。見出し層
+（title/headline/display）は密な表の折返しを避けるため据え置き＝**この2層は同じ数字にならない**。
+大数値は `displaySmall`（34）を基準にし、特に強調する箇所のみ `fontSize=44.sp` をローカル指定。
+
+---
+
+## 4. 共通コンポーネント仕様（API 確定）
+
+すべて `com.magi.app.ui.components`（新規パッケージ）に置く想定。既存composableは移行先を併記。
+
+### 4.1 MagiCard ⬜
+```kotlin
+@Composable fun MagiCard(
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit,
+)
+```
+- 形状 `shapes.medium`(20) / 面 `surface` / 内余白 `lg`(16) / 子間 `md`(12)。
+- onClick 非null時は `Card(onClick=…)`。タップ領域は最小 48dp を侵さない。
+- 既存 `Card(...){ Column(padding(16), spacedBy(12)) }` パターンの置換。
+
+### 4.2 セクション見出し ⬜（`MagiSectionHeader` は 3.409.10 で撤去）
+- 実装はあったが**呼出0のまま採用されなかった**（約660コミット）。実際の見出しは
+  `CollapsibleSection(title=…)`（編集タブの折りたたみ節）と、カード内で直接書く
+  `typography.titleMedium`（51箇所）で成り立っている。使われない部品を「用意されている」と
+  示し続けると、3.409.8 のように**この ✅ を根拠に撤去を見送る**判断を招くため、部品ごと撤去した。
+- 51箇所を共通部品へ寄せるのは、視覚上の利得が無い割に回帰リスクのある大きな改修＝別途の判断。
+
+### 4.3 MagiStatCard / BigStat 🟡（`BigStat` 実装済 → 名称統一）
+```kotlin
+@Composable fun MagiStatCard(label: String, value: String, accent: Color? = null, modifier: Modifier = Modifier)
+```
+- value=`displaySmall`(34 Bold)、label=`labelMedium`+`onSurfaceVariant`。
+- accent 指定時は value をその色に。複数並置は `Row{ Modifier.weight(1f) }`。
+
+### 4.4 MagiQuickActionTile ⬜（`QuickActionTile` は**存在しない**。3.409.10 で ✅ を訂正）
+```kotlin
+@Composable fun MagiQuickActionTile(
+    icon: ImageVector, title: String, container: Color, onClick: () -> Unit,
+    enabled: Boolean = true, modifier: Modifier = Modifier,
+)
+```
+- 形状 `shapes.large`(24) / 高さ最小 86dp / パステル容器色 / アイコン上・タイトル下。
+- `enabled=false`（実行中）は淡色＋クリック無効。グリッドは2〜3列 `QuickActionGrid`。
+
+### 4.5 MagiSegmentedControl ✅（Time Allowances テイスト）
+```kotlin
+@Composable fun MagiSegmentedControl(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier)
+```
+- Material3 `SingleChoiceSegmentedButtonRow` を採用（自前描画より堅牢）。
+- 選択中=`secondaryContainer`/`primary` の塗り、各セグメント最小高 40dp。
+- 用途: 勤務表の 月/週/スタッフ別 切替、設定の実行モード、編集の制約レベル（標準/強い/弱い）。
+
+### 4.6 MagiScoreGauge ✅（Time Allowances の中央大数値）
+```kotlin
+@Composable fun MagiScoreGauge(score: Int, max: Int = 100, label: String, sub: String? = null)
+```
+- 中央に大数値（`fontSize=44.sp` Bold）、下に細い `LinearProgressIndicator(progress=score/max)`。
+- 色: score高=green / 中=blue / 低=orange（しきい値は呼び出し側）。
+- 用途: 分析タブの総合スコア、ホームの満足度（`CopilotCard` の満足度行を置換可）。
+
+### 4.7 MagiLabeledSlider ⬜
+```kotlin
+@Composable fun MagiLabeledSlider(label: String, value: Int, range: IntRange, onChange: (Int) -> Unit, suffix: String = "")
+```
+- 行: 左ラベル(`titleSmall`) / 右現在値(`titleMedium` 強調) / 下 `Slider`。
+- 用途: 設定（実行時間・仮説数1..5・研磨強度・並列数）、編集（必要人数・制約強度）。
+
+### 4.8 MagiTagChip ✅（Reminders のカテゴリ）
+```kotlin
+@Composable fun MagiTagChip(text: String, color: Color, leadingIcon: ImageVector? = null)
+```
+- `CircleShape` / 高さ24–32dp / `color.copy(alpha=.16f)` 背景 + `color` 文字。
+- 用途: シフト種別・制約タグ・希望タグ・違反タグ・グループタグ。
+
+### 4.9 MagiListRow ⬜（Reminders の軽い一覧）
+```kotlin
+@Composable fun MagiListRow(leadingIcon: ImageVector? = null, title: String, subtitle: String? = null,
+                            trailing: @Composable (() -> Unit)? = null, onClick: (() -> Unit)? = null)
+```
+- 左アイコン色付き / 中央 title+subtitle 階層 / 右 件数or状態（`MagiTagChip` 等）。行高 最小 56dp。
+- 用途: スタッフ/制約/希望/アラート/違反内訳の一覧。
+
+### 4.10 MagiEditSheet ⬜（Reminders の編集ダイアログ / ボトムシート）
+```kotlin
+@Composable fun MagiEditSheet(title: String, onDismiss: () -> Unit, onConfirm: () -> Unit,
+                              confirmEnabled: Boolean = true, content: @Composable ColumnScope.() -> Unit)
+```
+- `ModalBottomSheet`。上に title(`titleLarge`)、本文は入力欄を目立たせる、下に明確な確定/取消ボタン（最小48dp）。
+- 用途: スタッフ編集・希望編集・必要人数編集・色設定。既存 `ShiftPickerSheet` と作法を統一。
+- **実装メモ（v3.35）**: 専用 `MagiEditSheet` 名では作らず、**§4.14 の `DialogHeader`＋共有3ボタン＋`W1Shell`** で同等を実現（タイトル＋右上✕／確定=右・取消=左・48dp）。ボトムシート（`ShiftPickerSheet`/`WishBulkSheet`）も `DialogHeader` を共有し作法統一済み。
+
+### 4.11 MagiColorPickerRow ⬜
+```kotlin
+@Composable fun MagiColorPickerRow(selected: Color, palette: List<Color> = MagiAccent.all, onSelect: (Color) -> Unit)
+```
+- 丸いカラーチップ（36dp）横並び、選択中はリング。既存 AlertDialog 色ピッカーの置換。
+
+### 4.12 MagiCalendarMonthView / DayShiftCell / ShiftEventPill ⬜（3.409.10 で ✅ を訂正）
+> 実装はこの形になっていない。勤務表は `MagiFlatGrid`/`FlatCell`（横スクロールの格子）で、
+> 月カレンダー（`StaffCalendarCard`/`CalendarCell`）は **3.193.0 でユーザー判断により撤去**済み。
+> 以下は当時の設計案として残す。
+```kotlin
+@Composable fun MagiCalendarMonthView(year: Int, month: Int, days: List<DayCell>, onDayClick: (Int) -> Unit)
+data class DayCell(val day: Int, val pills: List<ShiftPill>, val hasViolation: Boolean, val shortageNote: String?)
+@Composable fun ShiftEventPill(symbol: String, color: Color)
+```
+- 日曜始まり・曜日ヘッダ（`月火水木金土日`）。日付は大きく左上、シフトは小さな色付きピル、右上に違反マーカー（赤）、下部に人数不足/過多の補助。
+- セル最小 64dp 角丸 `small`(16)。違反日は赤みの補助表示（背景 `error.copy(alpha=.08f)`）。
+- `CalendarModeSwitcher` = `MagiSegmentedControl(["月","週","スタッフ別"])`。
+
+### 4.13 MagiScreenScaffold ⬜
+```kotlin
+@Composable fun MagiScreenScaffold(title: String, actions: @Composable RowScope.() -> Unit = {}, content: @Composable ColumnScope.() -> Unit)
+```
+- `background` 地 / 上部に大タイトル / 縦スクロール `Column(padding(horizontal=screenH), spacedBy(section))`。
+- 既存の各タブ Column ラッパを段階的に置換。
+
+### 4.14 ポップアップ共有部品 ✅（`Affordance.kt`・全ダイアログ/シート/ピッカーの正典）
+```kotlin
+@Composable fun DialogHeader(title: String, onClose: () -> Unit)          // タイトル＋右上✕
+@Composable fun DialogConfirmButton(text: String, onClick: () -> Unit, enabled: Boolean = true) // 確定=塗り
+@Composable fun DialogDismissButton(onClick: () -> Unit, text: String = "キャンセル")            // 取消=枠線
+@Composable fun DialogDangerButton(text: String, onClick: () -> Unit, enabled: Boolean = true)  // 破壊的=⚠＋エラー色
+```
+- **`DialogHeader`**: `Row[ Text(title, titleLarge, weight 1f) + IconButton(Close) ]`。フォーム系ダイアログ・ボトムシート・ピッカーのタイトルスロットに置き、ドラッグ不要の明示的な閉じる導線を上部に与える（no-drag方針）。単純な確認ダイアログ（削除の確認 等）には付けず素のタイトル。
+- **3ボタン**: いずれも `Modifier.heightIn(min = 48.dp)`。`AlertDialog` の `confirmButton`=右・`dismissButton`=左に割り当てることで、Material標準により**確定=右／取消=左**が全画面で固定。`DialogDangerButton` は `Icons.Filled.Warning`(18dp)＋エラー色で破壊的操作（削除/全リセット/すべて削除）に使用。
+- **規約**: ダイアログ/シートのボタンに生の `Button`/`TextButton` を直書きしない（左右逆・サイズ不揃い・危険色の付け忘れを防ぐ）。多択（CSV取込の5択等）は `DialogConfirmButton` を縦積みにし、選択肢に✓は付けない（選択であり確定ではない）。
+- **フォーム外殻 `W1Shell`**(`Ws1Editor.kt`): `AlertDialog`＋縦スクロール本文の共通殻。`DialogHeader`＋3ボタンを内包し、シフト/グループ/スタッフ/一括追加の各フォームで共有。
+- 適用: 全 `AlertDialog`（約10箇所）＋`W1Shell`（フォーム4種）＋ボトムシート2種（`ShiftPickerSheet`/`WishBulkSheet`）＋ピッカー（色/職員）＝**全ポップアップ**。
+
+---
+
+## 5. 画面反映（**いま画面にある構成**）
+
+> §4 が「作りたい共通部品の目録（⬜=未実装を含む）」なのに対し、**§5 は現物だけ**を書く。
+> 撤去した部品の名前は `>` 引用で「存在しない」と明示して残す（旧記述をそのまま消すと、
+> 古い版を読んだ人が「あるはずのものが無い」と探し直すため）。
+
+> 下図は **トークン正確モック**（`MainActivity.kt`/`MagiApp.kt` の実トークンで描画）であり、
+> 実機スクリーンショットではない。`tools/mock_render_dogfood.py`（要 `pip install pillow`）で再生成できる
+> （出力先 `docs/screens/`）。運用フロー **初期解 → 手動修正 → 最適化** をたどって検証した版。
+
+| 画面 | 図 |
+|---|---|
+| ① ホーム | ![ホーム](screens/01_home.png) |
+| ② 勤務表 7日 | ![勤務表7日](screens/02_schedule7.png) |
+| ③ シフト選択シート | ![シフト選択](screens/03_picker.png) |
+| ④ カレンダー月表示 | ![カレンダー](screens/04_calendar.png) |
+| ⑤ 確認ダイアログ | ![ダイアログ](screens/05_dialog.png) |
+
+### 5.1 ホーム ✅
+`InterruptedBanner` → `OperatorNextActionCard`(思考誘導＝主導線・`GuidedFixDialog` へ) →
+`LiveScheduleCard`(実行中の途中経過) → `CopilotCard`(満足度ゲージ) → `CoverageDiagnosisCard` →
+`ForbiddenRunDiagnosisCard` → `C1PlateauCard` → `PinFixedImpactCard` → `SettingIssuesCard` →
+`AlternativesCard`。
+[3.483.0] 解消度の括弧は4分岐（必須>0「必須 残りN件」／人手不足「残りN日」／必須0で調整あり「必須は解消・調整N件」／「解消済み」）、
+実行中は解消度行を出さず進捗行だけ。人手不足なしの狩猟では「なおすのを手伝って」の大ボタンを出さない（AI提案に一本化）。
+`AlternativesCard` はセグメントの下に全案の要約を常時列挙。
+> 旧記述の `StatusHero` / `SummaryCard` / `ActionCard` / `QuickActionGrid` は**いずれも存在しない**
+> （3.112.0 の冗長性削減で撤去。MagiApp.kt の該当箇所に撤去理由がコメントで残っている）。
+
+![ホーム](screens/01_home.png)
+
+状態バッジ（配布可/要確認/実行中）・満足度・**人員不足の原因**（充足不可/充足可能を `MagiTagChip` で明示）
+までをひと目で提示し、下部コマンドバーの「最適化する」へ親指誘導。
+
+### 5.2 勤務表 ✅
+`ViolationFilterBar`(種別フィルタ＋集中モード・見出しに「要確認 Nか所」) → `SearchLegendBar`(検索・凡例) →
+`ScheduleGrid`(`MagiFlatGrid`) → `WishApplyCard`(3.483.0 でグリッド下へ) → `TallyCard`(**既定は折りたたみ**・3.483.0。職員別/日別を `MagiSegmentedControl` で切替。編集タブ
+「回数（1人あたり）」の `StaffShiftMatrixCard` は目標(apt)編集も兼ねる別ビューとして併存)。
+セル編集は `ShiftPickerSheet`(親指ゾーンの大タイル)。シフト色は §1.3。
+[3.481.0] **日ヘッダは縦スクロールで画面上端に留まる**（`MagiFlatGrid` のヘッダ行を本体と `hScroll` 共有の独立行にし、
+ビューポート上端との差分だけ `graphicsLayer` で平行移動）。**週送り(前週/次週)と違反ナビ(＜前の違反/次の違反＞)は
+`Scaffold` 下部バー（`ScheduleNavBar`、勤務表タブ表示中のみ・`BottomCommandBar` の直上）に常駐**＝スクロール位置に
+関係なく親指で押せる（3.444.0 の「グリッド下」配置から引き上げ。状態は `ScheduleNavState`）。[3.483.0] ナビ行は**1段**
+（[◀週][週▶] 「M月 第n/N週 ・ 違反 k/31日」 [◀違反][違反▶]）。
+違反は**3段階の非色手がかり**（必須=実線 / 重いソフト=破線 / 軽いソフト=右上の角マーク・3.99.0）＋
+凡例 `ViolationLegend`。セル幅は「1週間(7日)が名前列と同時に収まる」よう動的計算（3.100.0）。
+> 旧記述の**表示切替セグメント(7日/カレンダー/1ヶ月)と `MagiCalendarMonthView`/`DayShiftCell`/
+> `ShiftEventPill` は存在しない**（§4.12 と同じ訂正。月全体の俯瞰=E5 はユーザーの明示 go まで保留）。
+
+![勤務表7日](screens/02_schedule7.png)
+![シフト選択](screens/03_picker.png)
+![カレンダー](screens/04_calendar.png)
+
+### 5.3 編集 🟡
+3サブタブ **月次条件（毎月）／職員管理（随時）／年間マスター（制度変更時）**（`MagiSegmentedControl`→`editScope`。
+3.114.0 で「いつ触るか」で再編。旧: 今月の調整／シフト希望／基本マスター）。年間マスターは**5節に集約**（①シフト・グループ ②スキルグループ ③回数[目標/個人/グループ] ④人数と組み合わせ[C41/C42/C41s/C42s] ⑤並び・くり返し[cons系]）。各節先頭に `SectionNote`。フォーム/ダイアログは `DialogHeader`＋共有3ボタンで統一（§4.14）。`WishApplyCard`✅。一覧の `MagiListRow` 化は段階移行。
+[3.482.0] **職員の一覧・入退職・所属・スキル割当は「職員管理」ドアだけ**（年間マスター①の職員節と②の「職員のスキル割当」は撤去＝3.114.0 の「併存」を上書き）。
+①の見出しは日本語のみ（旧 LOADOUT/ARSENAL/SQUAD/PARTY/MATRIX の英語コードネームは撤去）。
+⑤の並び4族は**起点シフトごとのチップ**（`SeqFamilyGrouped`＝「【Dﾃ の次の日】[B4 ×][A4 ×]… ＋追加」）で集約表示し、同じ並びの重複は追加/変更ダイアログの入口で拒否（族をまたぐ同一の並びも）。
+「勤務表をつくる」の作成導線は固定フッター（`BottomCommandBar`）の1か所（月次チェックリストのボタンと「ホームで作成」の案内文は撤去）。
+③の回数マトリクスのセルは**2行**（1行目=現在値、2行目=上下限 `10〜10`／`〜0`／`=5` または `目標5`）＋省略記号。
+[3.483.0] `SetupGuideCard`（初期設定の手順）は月次条件では「次の一手」だけ。月次チェックリストの入力診断は行タップでその場に展開。
+①の期間節は「期間の日数（月単位以外の特殊な期間用）」（対象の月は月次条件の「対象の月」）。担当可否は「群 × シフト：担当できるか」、
+回数マトリクスは「職員 × シフト：月に何回か」の副題で区別し、警告は「目標の合計N回 ＞ 上限M回」の1式・フッター左列に「計 実績/目標」。
+⑤の並び見出しは族で出し分け（「【X の次の日に禁止／必須（どれか）／推奨／は避ける】」）、末尾は「新しい起点で追加」。
+職員管理のスキル▼は2行目（グループの横）。
+
+![ダイアログ](screens/05_dialog.png)
+
+### 5.4 分析 🟡
+上部に **一般/プロ** 切替(`proMode`)。**`ViolationHubCard`**（3.459.0＝旧`ConfirmListCard`/`AttentionCardsSection`/
+`BreakdownCard`の3枚を統合。①見出し＋設定見直し件数 ②勤務表タブと共有するE7族フィルタ(6バケツ) ③一覧／
+日別・人別／内訳の3ビューを切り替えるセグメント。各ビューの中身は`ConfirmListBody`(箇所単位・重大度リスト)/
+`AttentionBody`(日別・人別＋「要確認のみ」トグル)/`BreakdownBody`(**違反内訳=全19種/100%**・fair/weekly含む・
+「重大のみ」トグル)へロジック不変で分割）/ `FixSuggestionCard`(1手提案。3.483.0: 結果あり＆必須>0なら自動で探索＝ホームと同じ挙動)。
+プロ時のみ `V6DashboardCard`。[3.483.0] `AnalysisTriageCard` 末尾の「▶ 勤務表をつくる」は撤去（固定フッターに一本化）。
+> 旧記述の `OverviewDashboard` / `CheckSummaryView` / `BottleneckCard` は**いずれも撤去済み**
+> （3.83.0・3.286.0・3.103.1。`AttentionCardsSection` と `ConfirmListCard` が上位互換だったが、
+> その2枚と`BreakdownCard`も3.459.0で`ViolationHubCard`へ統合済み）。
+> `WeightTableCard`（直す優先順位）は 3.127.0 で**設定タブへ移動**した。
+
+### 5.5 設定 ✅
+外観(`AppearanceCard`：片手モード ＋ かんたん/プロ。**テーマ選択は D8/3.121.0 で撤去し UD 固定**) /
+シフトの表示色(`ShiftColorCard`) / 違反種別の色(`ColorSettingsView`。3.483.0: 基準色2チップを常時、19種の族別チップは既定で折りたたみ) / 直す優先順位(`WeightTableCard`) /
+**最適化設定**(`SettingsCard`：並列・時間予算・計算方式・仕上げ最適化・版表示) /
+データ(`DataActionsCard`：JSON/CSV入出力・コンポーネント別出力) /
+詳細設定(`AdvancedSettingsSection`・折りたたみ・既定=閉：並列ワーカー/ネイティブ加速/Kotlin照合/
+仕上げ最適化などの調整とログの確認・出力)。
+**設定の重複を排除（v3.8）**：計算方式/ログの二重表示を解消（旧 FlagsView・トップの OperatorLogView を撤去）、カード見出しを `titleMedium` に統一。
+
+---
+
+## 6. 必須の操作原則（テイスト導入時の品質ゲート）
+
+1. タップ領域は広く（最小 48dp、リスト行56dp、カレンダー日セル64dp）。
+2. 情報を詰め込みすぎない（カード内は1カード1テーマ、セクション間 `section`20dp）。
+3. 色に意味を持たせる（§1.2 の意味付けを逸脱しない）。
+4. 進捗は必ず視覚化（実行中=blue、`MagiScoreGauge`/`LinearProgressIndicator`）。
+5. リストは静かに、重要数値は強く（`displaySmall`）。
+6. Androidらしい操作を壊さない（ボトムシート・触覚・スワイプ・OSファイルピッカーを維持）。
+
+---
+
+## 7. 実装メモ
+
+- 一次ソースは Material3 テーマ。`MagiTokens`（`MagiAccent` / `MagiSpacing` / `shiftAccentFallback`）だけを追加し、
+  `MagiColors/MagiShapes/MagiTypography` 相当は `MaterialTheme.*` を直接参照する（二重管理を避ける）。
+- 新規コンポーネントは `com.magi.app.ui.components` に集約し、画面は段階移行（churn最小）。
+- `Surface(onClick=…)` 等 `@ExperimentalMaterial3Api` を使う箇所は明示 opt-in。
+- lint は release で非ゲート化済（個人テスト用）。配布版にするときは `checkReleaseBuilds` を戻す。
+
+---
+
+## ユニバーサルデザイン／HCI の根拠（論文・規格にもとづく設計原則）
+
+スマホ特化・指1本・中学生ITレベルのオペレーターという要件を、確立した文献・規格に対応づけて担保する。
+各原則は「根拠 → 実装での担保」の形で記す（ドッグフーディングのチェック観点でもある）。
+
+1. **タッチ標的の大きさ（Fitts の法則 / WCAG 2.5.5 / Material）**
+   - 根拠: Fitts (1954) "The information capacity of the human motor system…"; WCAG 2.1 SC 2.5.5 Target Size (44×44 CSS px); Material 3 は最小 48dp。
+   - 担保: 主要な操作は `heightIn(min = 48.dp)`／56dp。Material3 は `TextButton`/`IconButton` に 48dp の最小インタラクティブ領域を既定で強制。勤務表セルは 52〜58dp。
+
+2. **選択肢を減らす（Hick–Hyman の法則）**
+   - 根拠: Hick (1952), Hyman (1953) — 選択肢数に応じて決定時間が対数的に増える。
+   - 担保: 思考誘導ホームは **大ボタン1つ＋控えめな補助1つ**。1画面1目的。詳細は折りたたみ（詳細設定）に隔離。
+
+3. **親指ゾーン／片手操作（モバイル到達性）**
+   - 根拠: Hoober & Berkman (2011) "Designing Mobile Interfaces"; Hoober のタッチ実地調査（親指中心・画面下部が到達容易）。
+   - 担保: 主操作は**下端の固定コマンドバー**。`片手で使う` トグルで内容を下方へ寄せる。横スクロール必須を作らない（勤務表は7日/カレンダー/月に分割）。
+
+4. **色だけに頼らない（WCAG 1.4.1 / 色覚多様性）**
+   - 根拠: WCAG 2.1 SC 1.4.1 Use of Color; Color Universal Design (CUDO)。
+   - 担保: 違反は色＋**形**（必須=実線枠＋塗りドット／要調整=破線枠＋中空リングドット）＋凡例。テーマに「見やすさ(UD)」を用意。
+
+5. **コントラスト（WCAG 1.4.3）**
+   - 根拠: WCAG 2.1 SC 1.4.3 Contrast (Minimum) 4.5:1（本文）。
+   - 担保: 各コンテナに対応する `on*` 前景色（Material3 ロール）を使用。状態色は緑/黄/赤＋十分な前景コントラスト。
+
+6. **スクリーンリーダー対応（WCAG 4.1.2 / 1.1.1）**
+   - 根拠: WCAG 2.1 SC 4.1.2 Name, Role, Value; 1.1.1 Non-text Content。
+   - 担保: 勤務表セルに `contentDescription`（例「7/28(水) シフト Dﾃ・必須違反、タップで変更」）。アイコンボタンに説明、装飾は `contentDescription = null`。
+
+7. **テキストの可読・リフロー（WCAG 1.4.4 / 1.4.10）**
+   - 根拠: WCAG 2.1 SC 1.4.4 Resize Text, 1.4.10 Reflow。
+   - 担保: 重要な状態文は省略せず折り返す（Compose は内容に合わせて高さ可変）。固定高での切り詰めを避ける。
+
+8. **一貫性と標準（Nielsen ヒューリスティクス #4, #6）**
+   - 根拠: Nielsen (1994) "Enhancing the explanatory power of usability heuristics" — 一貫性と標準／記憶より認識。
+   - 担保: 全画面で同一のカード様式・ボトムナビ・トップバー・余白・用語（必須違反／解消度／コンピューターが組んでいます）・状態色を統一。
+
+9. **認知負荷の最小化（Sweller / 漸進的開示）**
+   - 根拠: Sweller (1988) Cognitive Load Theory; Progressive Disclosure（Nielsen）。
+   - 担保: 専門記号（c3n/covU/ALNS 等）は画面に出さず、上級/開発項目は詳細設定へ。思考誘導で「次の一手」だけを提示。
+
+10. **グループ化（ゲシュタルト：近接・類同）**
+    - 根拠: Wertheimer (1923) ゲシュタルト原理。
+    - 担保: 関連項目はカードで近接配置、同種は同形・同色（違反内訳の重大度別チップ等）。
+
+> 検証: 上記 1–10 を「全画面ドッグフーディング」のチェックリストとして用いる（`tools/mock_render_current.py`（要 `pip install pillow`）でトークン忠実モックを生成して点検）。
+
+---
+
+## カラーテイスト：Daily Planner 調（2026-06-14）
+
+デイリープランナー系アプリに共通する「穏やか・温かい・余白多め」のテイストを、固有ブランド資産は複製せず**自前のトークンとして再構成**して取り入れた（介護現場・非技術オペレーターの安心感に合致）。
+
+- **ライト**：地＝温かいクリーム紙 `#F7F2EA`、カード＝白 `#FFFFFF`、文字＝温かいチャコール `#3A352F`（純黒を避ける）。
+  主操作＝落ち着いたダスティブルー `#4E6FC2`、補助＝やわらかラベンダー `#7E79C0`、成功＝穏やかセージ `#3DA776`、
+  注意＝温かい赤 `#DE5A52`、罫＝温かい淡色 `#E8E0D4`。
+- **ダーク**：地/面を温かいチャコール（`#18161A`/`#221F24`）、文字 `#EDE8E0`。アクセントは従来踏襲。
+- **高コントラスト(UD)**：アクセシビリティ優先のため**変更しない**（純白地・高コントラスト維持）。
+- 形（カード20dp・タイル24dp・ピル）と書体（見出し大・本文静か）は既存が既にプランナー調のため踏襲。
+- **意味色は不変**（緑=OK / 赤=注意 / 青=主操作）。違反の非色手がかり（実線/破線＋ドット）も維持。
+- 実装は `MainActivity.MagiTheme` の `lightColorScheme`/`darkColorScheme` のみ。シフトセル色（`MagiAccent`/`ShiftAppearance.resolveShiftColor`）は判別性維持のため据え置き。
+
+---
+
+## Material 3 トーナル配色への準拠（2026-06-14）
+
+「Daily Planner 調」を**手選びのサブセット**から、**Material 3 のトーナル・カラーシステム**（Material Theme Builder 相当）へ作り直し、全ロールを種色から導出してアクセシビリティを実測担保した。
+
+- **種色**：主＝ダスティブルー、副＝ラベンダー、三次＝セージ、誤＝M3標準レッド。**ニュートラルを暖色（クリーム）へ傾けて**プランナーの温かさを表現。
+- **全ロールを定義**：`primary/secondary/tertiary/error` ＋各 `container/on*`、`surface` と **`surfaceContainerLowest…Highest` / `surfaceBright/Dim`**、`surfaceVariant`、`outline/outlineVariant`、`inverseSurface/inverseOnSurface/inversePrimary`、`surfaceTint`、`scrim`。カードや段差は**トーナル・エレベーション**（白の段差でなく同系トーンの層）で表現。
+- **コントラスト実測（WCAG/M3）**：本文ペア（on*/コンテナ・surface）はすべて **4.5:1 以上**、UI ペア（primary/surface・outline/surface）は **3:1 以上** を満たすことを検証済み。
+  - ライト例：onSurface/surface=15.5、onPrimary/primary=5.6、primary/surface=5.3、outline/surface=4.2、各 onContainer/container=12〜13。
+  - ダーク例：すべて 5.5〜14.4。
+- **高コントラスト(UD)テーマ**は最大アクセシビリティ用途として独立維持（変更なし）。
+- 実装は `MainActivity.MagiTheme` の `lightColorScheme`/`darkColorScheme`。検証スクリプトの考え方は Material Design Color Tool / M3 ガイドラインのコントラスト基準に準拠。
+
+### 状態色のロール対応（M3 完遂・2026-06-14）
+思考誘導カード等の状態色を、ハードコードからテーマロール／集約トークンへ統一：
+- **主操作/実行中** → `primaryContainer`、**成功（配れます）** → `tertiaryContainer`、**埋められない** → `errorContainer`（いずれもテーマロール）。
+- **警告（もう少し）** は M3 に warning ロールが無いため `magiWarnColors()`（`MagiTokens`）に集約。surface の明るさで明/暗を判定し、明=淡アンバー#FBEAD0/#6B4E00（実測6.55:1）、暗=#5B4300/#FBEAD0（7.91:1）。`RiskChip` の不足1件もこのトークンを使用。
+- これで状態色はすべて「テーマロール or 文書化された独自セマンティック」になり、散在ハードコードを解消。
