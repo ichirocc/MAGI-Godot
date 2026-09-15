@@ -1,0 +1,128 @@
+name: Godot UI Check
+
+# Godot UI移行（docs/godot-ui-migration.md）の検証専用ワークフロー。
+# 通常のCI（android-sdk.yml / v6-engine-check.yml / release-build.yml）はGitHubホストランナーで
+# 完結するが、このワークフローはGodotエンジン本体を必要とするため、依存物（JDK/Android SDK36/
+# NDK26.1.10909125/CMake3.22.1/Gradle/Godot 4.5.1本体）を導入済みの self-hosted runner
+# （ラベル magi-godot）でのみ手動実行する。GitHubホストランナーでは実行しない
+# （Godot本体の取得・ライセンス許諾をCIのたびに行うのは非現実的なため）。
+#
+# push/pull_requestで自動起動しないのは、self-hosted runnerの可用性がCI基盤側の都合に依存し、
+# 通常の開発ループ（android-sdk.yml等）を巻き込みたくないため。Godot UI領域を変更したときは
+# 手動でこのワークフローを実行して確認する運用とする。
+
+on:
+  workflow_dispatch:
+    inputs:
+      godot_executable:
+        description: "Godot 4.5.1実行ファイルの絶対パス（未指定時はrunner環境変数GODOT_EXECUTABLEを使う）"
+        type: string
+        default: ""
+      upload_apk:
+        description: "生成したdebug APKをartifactとしてアップロードする"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: godot-ui-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  godot-ui-check:
+    runs-on: [self-hosted, magi-godot]
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # このrunnerは依存物導入済みという前提（docs/environment.md）。GitHubホストランナーの
+      # ワークフローのようにJDK/SDK/Gradleをここで都度インストールしない＝runner側の構成を
+      # 信頼し、無ければ次のステップで明示的に失敗させる（サイレントにスキップしない）。
+      - name: Resolve Godot executable path
+        id: godot
+        shell: bash
+        run: |
+          path="${{ inputs.godot_executable }}"
+          if [ -z "$path" ]; then
+            path="${GODOT_EXECUTABLE:-}"
+          fi
+          if [ -z "$path" ] || [ ! -x "$path" ]; then
+            echo "::error::Godot実行ファイルが見つからない。inputs.godot_executableかrunnerのGODOT_EXECUTABLE環境変数で絶対パスを指定すること（見つかったパス: '$path'）。"
+            exit 1
+          fi
+          "$path" --version
+          echo "path=$path" >> "$GITHUB_OUTPUT"
+
+      - name: Verify JDK / Gradle / Android SDK on runner
+        shell: bash
+        run: |
+          set -o pipefail
+          java -version
+          command -v gradle >/dev/null 2>&1 || { echo "::error::gradleがrunnerに見つからない"; exit 1; }
+          gradle --version
+          : "${ANDROID_SDK_ROOT:?ANDROID_SDK_ROOT がrunnerに設定されていない}"
+          sdkmanager --list_installed | grep -E "platforms;android-36|ndk;26.1.10909125|cmake;3.22.1" || {
+            echo "::error::必要なAndroid SDKパッケージ(platforms;android-36 / ndk;26.1.10909125 / cmake;3.22.1)がrunnerに無い";
+            exit 1;
+          }
+
+      - name: GDScript構文・シーン参照の静的確認
+        shell: bash
+        run: bash tools/godot-ui-check.sh
+
+      - name: Godot headless smoke test
+        shell: bash
+        env:
+          GODOT_BIN: ${{ steps.godot.outputs.path }}
+        run: |
+          mkdir -p build/ci-logs
+          set -o pipefail
+          "$GODOT_BIN" --headless --path godot --script res://tools/headless_smoke.gd 2>&1 | tee build/ci-logs/godot-headless-smoke.log
+
+      - name: Kotlin/JVMホストテスト（エンジン層・接続層）
+        shell: bash
+        run: |
+          mkdir -p build/ci-logs
+          set -o pipefail
+          bash tools/host/hosttest.sh 2>&1 | tee build/ci-logs/hosttest.log
+
+      - name: Kotlin単体テスト（Godot接続層 app/src/test）
+        shell: bash
+        run: |
+          mkdir -p build/ci-logs
+          set -o pipefail
+          gradle testDebugUnitTest --stacktrace 2>&1 | tee build/ci-logs/testDebugUnitTest.log
+
+      - name: Godot組込みAPKビルド（assembleDebug）
+        shell: bash
+        env:
+          GODOT_BIN: ${{ steps.godot.outputs.path }}
+        run: |
+          mkdir -p build/ci-logs
+          set -o pipefail
+          gradle -PmagiGodot=true -PgodotExecutable="$GODOT_BIN" :app:assembleDebug --stacktrace 2>&1 | tee build/ci-logs/assembleDebug-godot.log
+
+      # ログ保存はベストエフォート。self-hosted runnerはGitHubホストランナーほど
+      # ストレージ枠を気にする必要が薄いが、常時アップロードは無駄なので失敗時のみ短期保持。
+      - name: Upload CI logs (on failure only)
+        if: failure()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-ui-check-ci-logs
+          path: build/ci-logs
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload debug APK (Godot UI)
+        if: ${{ always() && inputs.upload_apk && hashFiles('**/build/outputs/apk/debug/**/*.apk') != '' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: magi-godot-debug-apk-${{ github.sha }}
+          path: "**/build/outputs/apk/debug/**/*.apk"
+          retention-days: 14

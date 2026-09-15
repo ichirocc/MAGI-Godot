@@ -10,6 +10,13 @@
 
 ## CI（GitHub Actions）
 - ブランチで走るのは Design Lint / Native Parity Check / V6 Engine Check。Release Build と Android SDK は main への push で走る。
+- **Godot UI Check**（`.github/workflows/godot-ui-check.yml`）は push/pull_request で自動起動しない。
+  Godot 4.5.1 本体・NDK26.1.10909125・CMake3.22.1 を導入済みの `magi-godot` ラベル付き self-hosted runner でのみ
+  `workflow_dispatch` 手動実行する（GitHub ホストランナーは Godot 本体を持たず、CI のたびに取得・ライセンス許諾するのは
+  非現実的なため）。GDScript 構文・シーン参照の静的確認 → Godot headless smoke → JVM ホストテスト → Kotlin 単体テスト
+  （接続層）→ `-PmagiGodot=true` 付き `assembleDebug` を一続きで行い、失敗時のみログを、成功時は任意で debug APK を
+  artifact として残す。runner 側に `GODOT_EXECUTABLE`・`ANDROID_SDK_ROOT` の設定が必要（無ければジョブが明示的に失敗する）。
+  このワークフロー自体の実行実績は本移行時点で未実施（`docs/godot-ui-migration.md` 参照）。
 - 監視: `api.github.com/repos/ichirocc/magi7ichiro-fork/actions/runs?head_sha=<sha>`（status / conclusion）。失敗 step は `/actions/runs/{id}/jobs`。
   CI ログ本体は results-receiver 上で取得不可＝コンパイルエラーは目視＋静的チェック（波括弧・フィールド名照合）で見つける。
 - ビルド約 4〜5 分 → debug-key APK 約 10.9MB。変更ごとに `versionCode++` と `versionName`（`app/build.gradle.kts`）。
