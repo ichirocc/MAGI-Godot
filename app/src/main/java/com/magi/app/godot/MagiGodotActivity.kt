@@ -10,12 +10,11 @@ import org.godotengine.godot.GodotFragment
 import org.godotengine.godot.GodotHost
 
 /**
- * [Godot移行] Godot UI レイヤーのホストActivity。magiGodot=true のビルドでは src/godot/AndroidManifest.xml
- * によりこちらがランチャーになる（Compose の MainActivity は残るが起動入口から外れる）。
+ * Godot UI レイヤーのホストActivity＝アプリ唯一の起動入口（3.549.0 で Compose UI を削除）。
  * GodotFragment を埋め込み、GDScript 側からは JavaClassWrapper 経由で [MagiBridge] を叩く。
  *
- * 未検証: このサンドボックスには Android SDK / Godot エンジン本体が無く、GodotFragment の実際の
- * 生成・GodotHost の契約は実機ビルドで初めて確認できる。docs/godot-ui-migration.md の「未実施・未検証」を参照。
+ * コンパイル・PCK 同梱・Manifest 合流は CI（Godot UI Check）で確認済み。実機での起動は未確認
+ * （docs/godot-ui-migration.md）。
  */
 class MagiGodotActivity : FragmentActivity(), GodotHost {
 
@@ -38,7 +37,7 @@ class MagiGodotActivity : FragmentActivity(), GodotHost {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // 既存Compose画面と同じ ViewModel を ViewModelProvider から取得（盤面・設定の二重管理を避ける）。
+        // 状態・操作のハブ MagiViewModel を ViewModelProvider から取得（Activity 再生成を跨いで保持）。
         val viewModel = ViewModelProvider(this)[MagiViewModel::class.java]
         bridge = MagiBridge(viewModel)
 

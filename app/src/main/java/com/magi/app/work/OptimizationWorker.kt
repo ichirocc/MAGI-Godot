@@ -2,13 +2,16 @@ package com.magi.app.work
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ServiceInfo
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
+import com.magi.app.godot.MagiGodotActivity
 import com.magi.app.v6.V6FinalPort
 import com.magi.app.v6.copy2D
 import com.magi.app.v6.toIntArray2D
@@ -133,21 +136,6 @@ class OptimizationWorker(
         //   だけ案内する＝**なぜ途中で消えたか**が読めなかった。失敗しても本体は続ける（従来どおり）。
         runCatching { setForeground(getForegroundInfo()) }
             .onFailure { note("前景サービスにできませんでした（${it.javaClass.simpleName}）＝端末の都合で計算が途中終了する可能性があります", "W") }
-        // [Android 17 バブル] 会話バブルの前提（会話チャンネル＋長寿命ショートカット）を用意し、開始バブルを提示。
-        runCatching {
-            BubbleSupport.ensureChannel(ctx)
-            BubbleSupport.pushShortcut(ctx)
-            BubbleSupport.postProgress(ctx, "最適化を開始しました")
-        }
-        // [3.412.0/B-10] `areBubblesAllowed` は定義があるだけで**戻り値がどこにも使われていなかった**
-        //   （＝端末側でバブルが禁止されていても、利用者にも作り手にも何も伝わらない）。バブルは
-        //   計算中の進捗を見せる唯一の常時表示なので、出ない理由が分かるようにログへ1行残す。
-        //   出さないのはバブルが**許可されているとき**＝正常時にノイズを増やさない。
-        runCatching {
-            if (!BubbleSupport.areBubblesAllowed(ctx)) {
-                note("会話バブルは端末の設定で許可されていません（進捗は通知バーに出ます）", "W")
-            }
-        }
         // [3.333.0/外部レビュー] 成功パスは所有権マーカー(runIdFile)を**自分で消してから** finally へ入る。
         //   finally が `ownsFiles()` をファイルから読み直すと「所有者でない」と判定され、
         //   `setRunning(false)` が飛ばされて **OptimizationRepository.running が永久に true** になっていた
@@ -155,7 +143,7 @@ class OptimizationWorker(
         //   自分で手放したことを覚えておき、finally はそれも所有者扱いにする。
         var releasedByMe = false
         var lastSnapMs = 0L
-        var lastBubbleMs = 0L
+        var lastNotifyMs = 0L
         var lastPublishMs = Long.MIN_VALUE / 4   // [3.394.0] 進捗 publish の窓
         var lostOwnership = false                // [3.394.0] 所有権を失ったら以後この実行は何も出さない
         val wallStart = System.currentTimeMillis()   // [実機報告「残り時間表示が5分から何度も巡回する」修正]
@@ -170,20 +158,20 @@ class OptimizationWorker(
                 if (report != null) {
                     // [実機報告「残り時間表示が5分から何度も巡回する」修正] onProgressのelapsedはフェーズ
                     //   境界（V5→ALNS→RSIラウンド等）で巻き戻るローカル時計。UI(progressSummaryの「残り」)と
-                    //   会話バブルの「経過」表示、および下のスロットル判定(elapsed差分)はいずれも単調増加を
+                    //   進捗通知の「経過」表示、および下のスロットル判定(elapsed差分)はいずれも単調増加を
                     //   前提とするため、単調な壁時計(wallStart基準、MagiViewModel.runV6FullOptimizeの
                     //   startMsと同じ考え方)に統一する。
                     val wallElapsed = System.currentTimeMillis() - wallStart
                     // [3.329.0/外部レビュー H-03] 置き換えられた旧実行は何も出さない。所有権の喪失は
                     //   **単調**（3.385.0＝`beginRun` を書くのは新しい実行だけ・`clear` はマーカーを消すだけ）
-                    //   なので、一度失ったら以後この実行は進捗もバブルも出さずに抜ける。
+                    //   なので、一度失ったら以後この実行は進捗も通知も出さずに抜ける。
                     if (lostOwnership) { droppedProgress++; return@handleOptimize }
                     // [3.394.0/外部レビュー] 前景と同じ窓で間引く。旧: 進捗コールバックごとに publish して
                     //   おり、ViewModel の collector が UiState を丸ごと差し替える＝前景で消したちらつきが
                     //   背景実行では残っていた（実測 PORTFOLIO 並列8 で 1,174.7回/秒）。
                     //   窓を **ownsFiles() より前** に置くので、旧コメントが「十分安い」と見積もっていた
                     //   所有権確認のファイル読取も同じ回数だけ減る（publish する回は従来どおり必ず確認する）。
-                    //   検知は最大 200ms 遅れるが、その間に走るのはバブル1回と、自前で所有権を見る
+                    //   検知は最大 200ms 遅れるが、その間に走るのは進捗通知1回と、自前で所有権を見る
                     //   スナップショット書き込みだけ。
                     if (wallElapsed - lastPublishMs >= OptimizationRepository.PROGRESS_PUSH_MS) {
                         lastPublishMs = wallElapsed
@@ -192,14 +180,12 @@ class OptimizationWorker(
                             OptimizationRepository.BgProgress(phase, report.hard, report.soft, report.total, iters, wallElapsed),
                         )
                     }
-                    // [Android 17 バブル] 進捗を会話バブルへ反映（連続更新は onlyAlertOnce で静音・~1.5秒間引き）。
-                    if (wallElapsed - lastBubbleMs > 1_500L) {
-                        lastBubbleMs = wallElapsed
+                    // 進捗を前景通知へ反映（onlyAlertOnce で静音・~1.5秒間引き）。
+                    if (wallElapsed - lastNotifyMs > 1_500L) {
+                        lastNotifyMs = wallElapsed
                         val s = wallElapsed / 1000
                         val clock = "%d:%02d".format(s / 60, s % 60)
-                        runCatching {
-                            BubbleSupport.postProgress(ctx, "計算中 ・ 経過 $clock ・ 違反 ${report.total}（必須 ${report.hard}）")
-                        }
+                        notifyProgress("計算中 ・ 経過 $clock ・ 違反 ${report.total}（必須 ${report.hard}）")
                     }
                     // [#4/C1] 途中最良解を定期スナップショット → kill されても「途中結果から再開」できる。
                     if (wallElapsed - lastSnapMs > 8_000L) {
@@ -307,11 +293,6 @@ class OptimizationWorker(
             //   以後の編集・Undo/Redo・新規実行が理由の見えないまま拒否され続ける（プロセス再起動まで）。
             //   `catch (Throwable)` 側は元から `releasedByMe = true` を立てており、ここだけ非対称だった。
             if (owned) { reportClear("停止"); releasedByMe = true }
-            // [3.412.0/B-08] 停止経路だけがバブルを片付けていなかった。完了・失敗は postDone で
-            //   進行中(ongoing)を解いて自動消去できる形にするのに、停止すると「計算中…」の
-            //   バブルが**画面に残り続ける**（`setOngoing(true)` はユーザーが払えない）。
-            //   所有者のときだけ消す（置き換えられた旧実行が新実行のバブルを消さないため）。
-            if (owned) runCatching { BubbleSupport.clear(ctx) }
             terminal(if (owned) "停止（片付け済み）" else "停止（所有権が無いため片付けなし）")
             throw e
         } catch (e: Throwable) {
@@ -331,7 +312,6 @@ class OptimizationWorker(
             if (owned) { reportClear("失敗"); releasedByMe = true }
             terminal("失敗: ${e.javaClass.simpleName}: ${e.message}" + if (owned) "（片付け済み）" else "（所有権なし）", "W")
             notify("最適化に失敗しました", e.message ?: "原因不明")
-            runCatching { BubbleSupport.postDone(ctx, "最適化に失敗しました", autoExpand = true) }
             Result.failure()
         } finally {
             // [3.329.0/外部レビュー H-03] **所有者のときだけ**実行中を降ろす。置き換えで打ち切られた
@@ -348,21 +328,39 @@ class OptimizationWorker(
     /** Required for expedited work running as a foreground service. */
     override suspend fun getForegroundInfo(): ForegroundInfo {
         ensureChannel()
-        val n = NotificationCompat.Builder(ctx, CHANNEL)
+        // minSdk 36 (Android 16+): foregroundServiceType is always required.
+        return ForegroundInfo(NID_PROGRESS, progressNotification("バックグラウンドで計算しています…"), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+    }
+
+    // 通知タップで Godot 版の画面へ戻す（3.549.0: 会話バブルは展開ビューが Compose だったため Compose 削除で撤去）。
+    private fun openAppIntent(): PendingIntent =
+        PendingIntent.getActivity(
+            ctx,
+            0,
+            Intent(ctx, MagiGodotActivity::class.java)
+                .setAction(Intent.ACTION_MAIN)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+
+    private fun progressNotification(text: String) =
+        NotificationCompat.Builder(ctx, CHANNEL)
             .setSmallIcon(android.R.drawable.stat_notify_sync)
             .setContentTitle("勤務表を最適化中")
-            .setContentText("バックグラウンドで計算しています…")
+            .setContentText(text)
+            .setContentIntent(openAppIntent())
             .setOngoing(true)
+            .setOnlyAlertOnce(true)
             .build()
-        // minSdk 36 (Android 16+): foregroundServiceType is always required.
-        return ForegroundInfo(NID_PROGRESS, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+
+    /** 前景通知（NID_PROGRESS）を同じ ID で更新＝進捗の常時表示。 */
+    private fun notifyProgress(text: String) {
+        runCatching { NotificationManagerCompat.from(ctx).notify(NID_PROGRESS, progressNotification(text)) }
     }
 
     private fun notifyDone(hard: Int, total: Int) {
         val msg = if (hard == 0) "配布できます（必須違反0・合計$total）" else "未解決$hard 件（合計$total）"
         notify("最適化が完了しました", msg)
-        // [Android 17 バブル] 完了サマリを会話バブルへ反映（ongoing 解除）。
-        runCatching { BubbleSupport.postDone(ctx, msg) }
     }
 
     private fun notify(title: String, text: String) {
@@ -370,6 +368,7 @@ class OptimizationWorker(
             .setSmallIcon(android.R.drawable.stat_sys_download_done)
             .setContentTitle(title)
             .setContentText(text)
+            .setContentIntent(openAppIntent())
             .setAutoCancel(true)
             .build()
         runCatching { NotificationManagerCompat.from(ctx).notify(NID_DONE, n) }
