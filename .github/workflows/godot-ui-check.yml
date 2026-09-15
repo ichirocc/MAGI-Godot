@@ -156,10 +156,36 @@ jobs:
         run: |
           set -o pipefail
           gradle -PmagiGodot=true -PgodotExecutable="$GODOT_BIN" :app:assembleDebug --stacktrace 2>&1 | tee build/ci-logs/assembleDebug-godot.log
-          echo "== merged manifest (launcher) =="
-          grep -nE "MagiGodotActivity|MainActivity|LAUNCHER" app/build/intermediates/merged_manifest/debug/*/AndroidManifest.xml || true
-          echo "== pck in apk =="
-          unzip -l app/build/outputs/apk/debug/app-debug.apk | grep -E "assets/magi.pck|lib/arm64-v8a/libgodot" || true
+
+      # assemble が通っても「起動できる構成」とは限らない。合流後の Manifest で MagiGodotActivity だけが
+      # LAUNCHER であること、APK に magi.pck と Godot のネイティブライブラリが入っていることを必須にする。
+      - name: 起動構成の検証（merged manifest / APK 内容）
+        shell: bash
+        run: |
+          manifest=$(ls app/build/intermediates/merged_manifest/debug/*/AndroidManifest.xml | head -1)
+          echo "merged manifest: $manifest"
+          python3 - "$manifest" <<'PY'
+          import sys, xml.etree.ElementTree as ET
+          A = "{http://schemas.android.com/apk/res/android}"
+          root = ET.parse(sys.argv[1]).getroot()
+          launchers = []
+          for act in root.iter("activity"):
+              name = act.get(A + "name")
+              for f in act.findall("intent-filter"):
+                  cats = [c.get(A + "name") for c in f.findall("category")]
+                  if "android.intent.category.LAUNCHER" in cats:
+                      launchers.append(name)
+          print("LAUNCHER activities:", launchers)
+          if launchers != ["com.magi.app.godot.MagiGodotActivity"]:
+              print("::error::magiGodot=true では MagiGodotActivity だけが LAUNCHER であるべき")
+              sys.exit(1)
+          PY
+          apk=app/build/outputs/apk/debug/app-debug.apk
+          unzip -l "$apk" > build/ci-logs/apk-contents.txt
+          grep -E "assets/magi\.pck$" build/ci-logs/apk-contents.txt || { echo "::error::APK に assets/magi.pck が無い"; exit 1; }
+          grep -E "lib/arm64-v8a/libgodot_android\.so$" build/ci-logs/apk-contents.txt || { echo "::error::APK に lib/arm64-v8a/libgodot_android.so が無い"; exit 1; }
+          grep -E "lib/arm64-v8a/libmagi_native\.so$" build/ci-logs/apk-contents.txt || { echo "::error::APK に lib/arm64-v8a/libmagi_native.so が無い"; exit 1; }
+          echo "OK: launcher / magi.pck / libgodot_android.so / libmagi_native.so"
 
       # release も debug 鍵署名の動作確認用（app/build.gradle.kts の buildTypes.release）。手動実行時のみ。
       - name: Godot組込みAPKビルド（assembleRelease）

@@ -67,9 +67,12 @@ Android SDK / Godotエンジン本体が無いため**一切実施できてい�
   未検証: `res://magi.pck` の解決（APK assets）が実機で成立するか。
 - `app/src/godot/AndroidManifest.xml`（第3段で新設）: main より高優先でマージされ、Compose 側
   `MainActivity` の LAUNCHER intent-filter を `tools:node="remove"` で外し、`MagiGodotActivity` を
-  起動入口として宣言する（`configChanges` は Godot 公式テンプレートに準拠）。**main の
-  `AndroidManifest.xml` は無変更**（第2段までの本文書に「main へ宣言のみ追加」とあったのは誤記で、
-  実際には宣言が無く `magiGodot=true` でも起動できない状態だった）。
+  起動入口として宣言する（`configChanges` は Godot 公式テンプレートに準拠）。
+  第2段までは main の `AndroidManifest.xml` に `exported=false`・intent-filter 無しの宣言があり（第3段の本文書と
+  README に「宣言が無かった」と書いたのは誤り＝LAUNCHER 行だけを grep した見落とし）、第4段の CI で build-type
+  manifest 側の宣言と `exported`/`configChanges` が衝突して合流に失敗した。**main 側の宣言は撤去**し、
+  `MagiGodotActivity` の宣言は `src/godot/AndroidManifest.xml` だけに置く（既定ビルドは実体の無い Activity を
+  宣言しない）。
 - `app/src/godot/java/com/magi/app/godot/MagiGodotActivity.kt`: `FragmentActivity`＋`GodotHost`実装、
   `GodotFragment`埋め込み。GDScript の `JavaClassWrapper` は static メソッドしか呼べないため、
   `magiSnapshot()`/`magiDispatch()` は companion の `@JvmStatic` とし、Activity が生成した `MagiBridge` を

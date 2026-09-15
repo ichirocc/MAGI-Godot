@@ -40,7 +40,8 @@ PCK 生成は export templates 不要の `godot/tools/build_pck.gd`（PCKPacker�
 
 **最終更新**：2026-09-15（Godot UI移行・第3段: 起動阻害3件の修正。①`src/godot/AndroidManifest.xml`を新設し
 `magiGodot=true`時だけbuild-type manifestとして合流＝Compose側LAUNCHERを外し`MagiGodotActivity`を起動入口に
-（main のManifestは無変更。第2段の記録「宣言のみ追加」は誤記で実際は未宣言＝起動不能だった）。
+（第4段で訂正: main には `exported=false`・intent-filter 無しの宣言が実在した。CI の Manifest 合流で衝突したため
+main 側は撤去し、宣言は `src/godot/AndroidManifest.xml` に一本化）。
 ②`MagiBridge`のメインスレッド待ちに10秒上限、超過時はエラーJSON。③トークン鮮度検査を実行と同じ
 メインスレッド区間へ移し（旧: 検査→postの間に盤面が変わっても通る隙）、リビジョンをdispatch成功時のみ
 進める（旧: snapshotごとに進みプレビュー用トークンが画面更新だけで失効）。あわせて`MagiGodotActivity`を
