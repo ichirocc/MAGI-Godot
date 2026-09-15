@@ -59,18 +59,23 @@ Android SDK / Godotエンジン本体が無いため**一切実施できてい�
 |---|---|---|
 | 1 | ホーム | 新規/生成/最適化/調整/BG実行/停止/保存を実dispatch。主要指標を表示 |
 | 2 | 勤務表 | グリッド描画・セルタップでシフト巡回setCell。**シフト選択ダイアログは未実装**（次のシフトへ巡回のみ） |
-| 3 | 職員/シフト/群 管理 | **読み取り専用**。追加/編集/削除/並び替えは未実装（対応opが許可リスト未収載） |
+| 3 | 職員/シフト/群 管理 | 職員/シフト/群の一覧・追加・編集・削除・並び替え(上下ボタン)を実dispatch |
 | 4 | 月・希望・回数編集 | 希望反映(範囲内/範囲外)・範囲外クリアのみ実装。**個別希望セル編集は未実装** |
-| 5 | 担当とスキル管理 | **読み取り専用**プレースホルダ（canDo/apt目標の一覧なし。件数のみ） |
-| 6 | 制約編集（全11族） | **読み取り専用**。breakdown件数の表示のみ。行の追加/編集/削除は未実装 |
+| 5 | 担当とスキル管理 | 群×シフトのcanDo切替・apt目標編集・スキル区分CRUD・職員のスキル区分割当を実dispatch |
+| 6 | 制約編集（全11族） | cons1/cons2/cons3系4種/cons3w/cons41/cons42/cons41s/cons42sの追加・編集・削除を実dispatch |
 | 7 | 分析 | 内訳数値・改善提案探索/適用(先頭のみ簡易ボタン)・設定ミス適用・代替案/操作履歴の表示 |
 | 8 | 設定 | 並列数/予算/ネイティブ加速/パリティ照合/ソフト研磨の表示、一部トグルをdispatch |
 | 9 | 詳細JSON編集 | JSON文字列の`load`のみ。**現盤面の全文書き出しは未実装** |
 | 10 | 取消・保存 | Undo/Redo/保存/CSV取込を実dispatch。**JSON/CSVのファイル書出し(SAF連携)は未実装** |
 
-上記のとおり、**1本の操作ループ（新規/生成/最適化/調整/セル編集/分析/設定/取消/保存の骨格）は
-dispatchで実際に繋がっているが、既存Composeの全機能と同等ではない。** 特に3/5/6は一覧表示のみで、
-構造編集（職員追加、シフト定義、制約行のCRUD等）は`MagiOpWhitelist`に未収載＝今回のスコープ外。
+3/5/6画面は`MagiBridge.snapshot()`の`structure`キー（`MagiState`の生値をJSON化したもの＝shifts/
+groups/staff/skillGroups/groupShift/groupShiftApt/cons1〜cons42s）を読み、`MagiOpWhitelist`へ追加した
+ws1系・addCons系・updateConstraint/removeConstraintをdispatchする。並び替えはCLAUDE.md「片手一本指」
+方針により**ドラッグではなく上下移動ボタン**（`ws1MoveStaffTo`/`ws1MoveShiftTo`/`ws1MoveGroupTo`、
+既存の隣接swapを1方向へ繰り返す実装＝Compose側`Ws1Editor.kt`と同じ`Ws1Ops`を呼ぶ）で行う。
+担当可否/apt目標はエンジン仕様上「群×シフト」単位（`groupShift`/`groupShiftApt`）であり、
+個人単位のcanDoフィールドはデータモデルに存在しないため（`docs/data-models.md`参照）、AptSkills画面は
+群×シフトの表として実装し、職員側はスキル区分の割当のみを扱う。
 
 ## 検証状況（正直な申告）
 
@@ -93,11 +98,26 @@ dispatchで実際に繋がっているが、既存Composeの全機能と同等�
 - 既存Compose UIとの画面ごとの見た目・操作の同等性（今回は一部画面が読み取り専用のプレースホルダに
   留まっており、そもそも同等ではない）。
 
+## タスクA（照合・修正）で見つけた点
+
+- **トークン設計**: `MagiBridgeToken`はsnapshot本文のSHA-256+単調リビジョンで、dispatch時に
+  現在の状態と一致するトークンだけを受理する（`stop`/`dismissInterrupted`は鮮度チェック免除）。
+  実装は仕様どおりで変更不要と判断した。
+- **非同期順序**: `MagiBridge.dispatch`は`Handler(mainLooper)+CountDownLatch`で常にメインスレッドへ
+  同期的に移送する設計（呼び出し元スレッドは`dispatch`の戻りを待つ）。Godot(GDScript)側の
+  `MagiApi.dispatch`も呼び出しごとに結果を待ってから次の操作を組み立てる作りのため、連続呼び出しの
+  後勝ち/早い者勝ちの矛盾は起きない。シーケンス番号の追加は不要と判断した。
+- **許可リストの網羅性**: タスクBで追加する職員/シフト/群・スキル・制約のCRUD操作（`ws1*`/`addCons*`/
+  `updateConstraint`/`removeConstraint`）が未収載だったため、本作業で`MagiOpWhitelist`と
+  `MagiBridge.invokeOp`へ追加した。
+- **状態の二重保持**: `MagiBridge`は`viewModel.uiState`/`viewModel.state`を読むだけで独自の可変状態を
+  持っておらず、単一真実源は保たれている。3/5/6画面の生値表示のため`snapshot()`へ`structure`キー
+  （`viewModel.state`の直列化コピー）を追加したが、これも読み取り専用のJSONコピーであり二重保持ではない。
+- **ログ/セキュリティ**: `MagiBridge`/Godotスクリプトともに`Log.*`/`println`によるトークンや盤面JSON・
+  職員名の出力は無かった（新規追加分にも追加していない）。
+
 ## 未完了・既知の制限
 
-- 3/5/6画面の構造編集（職員・シフト・群・制約11族のCRUD）が未実装。`MagiOpWhitelist`と
-  `MagiBridge.invokeOp`を拡張し、`MagiViewModelConstraints.kt`/`MagiViewModelWs1.kt`の対応メソッドを
-  追加dispatchする作業が必要。
 - 勤務表のシフト選択は「次のシフトへ巡回」の簡易実装。実際のシフト選択ピッカー(ボトムシート相当)は未実装。
 - JSON全文の読み書き（現盤面のエクスポート）・CSV/JSONのファイル保存(SAF)は未配線。
 - `MagiGodotActivity`のビルド可否・`GodotFragment`の正しい生成方法は実機/実際のGodot Androidテンプレート

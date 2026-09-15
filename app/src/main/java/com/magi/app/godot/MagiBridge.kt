@@ -171,6 +171,40 @@ class MagiBridge(private val viewModel: MagiViewModel) {
             "setAptFairSoftTolerance" -> viewModel.setAptFairSoftTolerance(args.getBoolean("on"))
             "setSoftPolish" -> viewModel.setSoftPolish(args.getBoolean("on"))
             "setV6Algorithm" -> viewModel.setV6Algorithm(V6Algorithm.valueOf(args.getString("algorithm")))
+            // [B1] 職員/シフト/群 管理
+            "ws1AddShift" -> viewModel.ws1AddShift(args.getString("name"), args.getString("kigou"), args.getString("need1"), args.getString("need2"))
+            "ws1EditShift" -> viewModel.ws1EditShift(args.getInt("k"), args.getString("name"), args.getString("kigou"), args.getString("need1"), args.getString("need2"))
+            "ws1RemoveShift" -> viewModel.ws1RemoveShift(args.getInt("k"))
+            "ws1MoveShiftTo" -> viewModel.ws1MoveShiftTo(args.getInt("from"), args.getInt("to"))
+            "ws1AddGroup" -> viewModel.ws1AddGroup(args.getString("name"), args.getString("kigou"))
+            "ws1EditGroup" -> viewModel.ws1EditGroup(args.getInt("g"), args.getString("name"), args.getString("kigou"))
+            "ws1RemoveGroup" -> viewModel.ws1RemoveGroup(args.getInt("g"))
+            "ws1MoveGroupTo" -> viewModel.ws1MoveGroupTo(args.getInt("from"), args.getInt("to"))
+            "ws1AddStaff" -> viewModel.ws1AddStaff(args.getString("name"), args.getInt("groupIdx"))
+            "ws1EditStaff" -> viewModel.ws1EditStaff(args.getInt("i"), args.getString("name"), args.getInt("groupIdx"))
+            "ws1RemoveStaff" -> viewModel.ws1RemoveStaff(args.getInt("i"))
+            "ws1MoveStaffTo" -> viewModel.ws1MoveStaffTo(args.getInt("from"), args.getInt("to"))
+            // [B2] 担当とスキル
+            "ws1SetGroupShift" -> viewModel.ws1SetGroupShift(args.getInt("g"), args.getInt("k"), args.getBoolean("allowed"))
+            "ws1SetGroupShiftRow" -> viewModel.ws1SetGroupShiftRow(args.getInt("g"), args.getBoolean("allowed"))
+            "ws1SetGroupShiftColumn" -> viewModel.ws1SetGroupShiftColumn(args.getInt("k"), args.getBoolean("allowed"))
+            "ws1SetGroupApt" -> viewModel.ws1SetGroupApt(args.getInt("g"), args.getInt("k"), args.getString("value"))
+            "ws1ResetGroupApt" -> viewModel.ws1ResetGroupApt()
+            "addSkillGroup" -> viewModel.addSkillGroup(args.getString("name"), args.getString("kigou"))
+            "editSkillGroup" -> viewModel.editSkillGroup(args.getInt("g"), args.getString("name"), args.getString("kigou"))
+            "removeSkillGroup" -> viewModel.removeSkillGroup(args.getInt("g"))
+            "setStaffSkill" -> viewModel.setStaffSkill(args.getInt("i"), args.getInt("skillIdx"))
+            // [B3] 制約編集
+            "addCons1" -> viewModel.addCons1(args.getString("day1"), args.getString("shiftKigou"), args.getString("day2"))
+            "addCons2" -> viewModel.addCons2(args.getString("shiftKigou"), args.getString("count"))
+            "addCons3" -> viewModel.addCons3(args.getString("family"), jsonArrayToStrings(args.getJSONArray("pattern")))
+            "addCons41" -> viewModel.addCons41(args.getString("groupKigou"), args.getString("shiftKigou"), args.getString("l"), args.getString("u"))
+            "addCons42" -> viewModel.addCons42(args.getString("g1"), args.getString("g2"), args.getString("s1"), args.getString("s2"))
+            "addCons41s" -> viewModel.addCons41s(args.getString("groupKigou"), args.getString("shiftKigou"), args.getString("l"), args.getString("u"))
+            "addCons42s" -> viewModel.addCons42s(args.getString("g1"), args.getString("g2"), args.getString("s1"), args.getString("s2"))
+            "addCons3w" -> viewModel.addCons3w(args.getString("wishKigou"), args.getString("prevKigou"))
+            "updateConstraint" -> viewModel.updateConstraint(args.getString("family"), args.getInt("index"), jsonArrayToStrings(args.getJSONArray("values")))
+            "removeConstraint" -> viewModel.removeConstraint(args.getString("family"), args.getInt("index"))
             else -> throw IllegalStateException("unhandled allowed op: $op")
         }
     }
@@ -223,5 +257,41 @@ class MagiBridge(private val viewModel: MagiViewModel) {
         put("saveState", ui.saveState.name)
         put("fixSuggestionCount", ui.fixSuggestions.size)
         put("settingIssueCount", ui.settingIssues.size)
+        // [B1/B2/B3] 構造編集画面（職員/シフト/群・担当スキル・制約11族）は生値の一覧表示が要る。
+        // 既存フィールドの寄せ集めでは表現できないため viewModel.state（internal=モジュール内可視）を
+        // そのまま直列化する。可変オブジェクトそのものではなくJSONのコピーなので単一真実源は崩れない。
+        viewModel.state?.let { st -> put("structure", structureToJson(st)) }
     }
+
+    private fun structureToJson(st: com.magi.app.model.MagiState): JSONObject = JSONObject().apply {
+        put("shifts", JSONArray(st.shifts.map { s ->
+            JSONObject().put("name", s.name).put("kigou", s.kigou).put("need1", s.need1).put("need2", s.need2)
+        }))
+        put("groups", JSONArray(st.groups.map { g -> JSONObject().put("name", g.name).put("kigou", g.kigou) }))
+        put("staff", JSONArray(st.staff.map { s ->
+            JSONObject().put("name", s.name).put("groupIdx", s.groupIdx).put("skillIdx", s.skillIdx)
+        }))
+        put("skillGroups", JSONArray(st.skillGroups.map { g -> JSONObject().put("name", g.name).put("kigou", g.kigou) }))
+        put("groupShift", JSONArray(st.groupShift.map { row -> JSONArray(row) }))
+        put("groupShiftApt", JSONArray(st.groupShiftApt.map { row -> JSONArray(row) }))
+        put("cons1", JSONArray(st.cons1.map { JSONObject().put("day1", it.day1).put("shiftKigou", it.shiftKigou).put("day2", it.day2) }))
+        put("cons2", JSONArray(st.cons2.map { JSONObject().put("shiftKigou", it.shiftKigou).put("count", it.count) }))
+        put("cons3", JSONArray(st.cons3.map { JSONArray(it.pattern) }))
+        put("cons3n", JSONArray(st.cons3n.map { JSONArray(it.pattern) }))
+        put("cons3m", JSONArray(st.cons3m.map { JSONArray(it.pattern) }))
+        put("cons3mn", JSONArray(st.cons3mn.map { JSONArray(it.pattern) }))
+        put("cons3w", JSONArray(st.cons3w.map { JSONObject().put("wishKigou", it.wishKigou).put("prevKigou", it.prevKigou) }))
+        fun c41(rows: List<com.magi.app.model.C41Row>) = JSONArray(rows.map {
+            JSONObject().put("groupKigou", it.groupKigou).put("shiftKigou", it.shiftKigou).put("l", it.l).put("u", it.u)
+        })
+        fun c42(rows: List<com.magi.app.model.C42Row>) = JSONArray(rows.map {
+            JSONObject().put("g1Kigou", it.g1Kigou).put("s1Kigou", it.s1Kigou).put("g2Kigou", it.g2Kigou).put("s2Kigou", it.s2Kigou)
+        })
+        put("cons41", c41(st.cons41))
+        put("cons42", c42(st.cons42))
+        put("cons41s", c41(st.cons41s))
+        put("cons42s", c42(st.cons42s))
+    }
+
+    private fun jsonArrayToStrings(arr: JSONArray): List<String> = (0 until arr.length()).map { arr.getString(it) }
 }

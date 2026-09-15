@@ -32,10 +32,11 @@ This project contains a Kotlin/Jetpack Compose Android app that ports the MAGI w
 | [`CLAUDE.md`](./CLAUDE.md) | 引き継ぎ・直近の状態・作業の進め方（grilling 等） |
 | [`docs/changelog.md`](./docs/changelog.md) | **版ごと（3.xxx.0単位）の詳細な変更履歴アーカイブ**（`CLAUDE.md`から切り出し。個別の修正内容・調査記録・実測値を確認したい時だけ検索して読む。通常のセッション開始時には注入されない） |
 
-**最終更新**：2026-09-15（Godot UI移行・第1段: `godot/`にGodot 4.5.1プロジェクト骨格＋10画面スクリプトの
-ソースを新規追加、`app/src/main/java/com/magi/app/godot/`にKotlinブリッジ層(`MagiBridge`/許可リスト/
-SHA-256+リビジョンのトークン方式)を追加。既存`v6/`・重み・`MagiViewModel`は無変更、`magiGodot`Gradle
-フラグ既定OFFで既存Composeビルドは無変更。ホストJVMテスト773件成功（ブリッジ純ロジックの新規テスト含む）。
+**最終更新**：2026-09-15（Godot UI移行・第2段: 職員/シフト/群 管理・担当とスキル・制約編集(全11族)の
+3画面をプレースホルダから構造編集対応へ。`MagiOpWhitelist`/`MagiBridge`へws1系・addCons系・
+updateConstraint/removeConstraintを追加し、`snapshot()`へ`MagiState`生値の`structure`キーを追加。
+並び替えは片手一本指方針によりドラッグでなく上下ボタン。既存`v6/`・重み・`MagiViewModel`は無変更、
+`magiGodot`Gradleフラグ既定OFFで既存Composeビルドは無変更。ホストJVMテスト773件成功。
 **Android/Godotの実ビルド・実機検証はこのサンドボックスでは未実施**＝詳細は`docs/godot-ui-migration.md`）
 
 **最終更新**：2026-09-14（3.542.0＝新制約「希望の前日に禁止」`cons3w`/違反キー `c3w`。ユーザーと対話（grilling）で設計:
