@@ -12,22 +12,35 @@ signal state_changed(state: Dictionary)
 var _current_token: String = ""
 var _last_state: Dictionary = {}
 var _activity_class = null
+# Android なのに Kotlin 側へ繋げなかった状態。モックへ黙って落とすと「動いているように見えて
+# 実データに何も反映されない」ため、この状態では snapshot/dispatch をエラー応答にする。
+var _native_failed: bool = false
 
 func _ready() -> void:
 	if OS.get_name() == "Android":
 		# NOTE: 実機でのクラス名・メソッドシグネチャの一致は未検証。
 		_activity_class = JavaClassWrapper.wrap("com.magi.app.godot.MagiGodotActivity")
+		if _activity_class == null:
+			_native_failed = true
+			push_error("MagiApi: JavaClassWrapper.wrap(MagiGodotActivity) failed; bridge unavailable")
 
 func is_native() -> bool:
 	return _activity_class != null
+
+## エディタ等の非Android実行でだけモックを使う。Android で接続に失敗した場合はモックにしない。
+func _use_mock() -> bool:
+	return not is_native() and not _native_failed
 
 ## 現在のUiStateを取得し、内部キャッシュ(_last_state/_current_token)を更新する。
 func refresh() -> Dictionary:
 	var raw := ""
 	if is_native():
 		raw = _activity_class.magiSnapshot()
-	else:
+	elif _use_mock():
 		raw = _mock_snapshot()
+	else:
+		push_error("MagiApi: snapshot unavailable (native bridge failed)")
+		return _last_state
 	var parsed = JSON.parse_string(raw)
 	if parsed == null or not (parsed is Dictionary):
 		push_error("MagiApi: snapshot JSON parse failed")
@@ -53,10 +66,12 @@ func dispatch(op: String, args: Dictionary = {}) -> Dictionary:
 	var raw := ""
 	if is_native():
 		raw = _activity_class.magiDispatch(op, args_json)
-	else:
+	elif _use_mock():
 		raw = _mock_dispatch(op, args)
-	var result: Dictionary = JSON.parse_string(raw)
-	if result == null:
+	else:
+		return {"ok": false, "error": "bridge unavailable: native bridge failed"}
+	var result = JSON.parse_string(raw)
+	if result == null or not (result is Dictionary):
 		return {"ok": false, "error": "dispatch response parse failed"}
 	if result.get("ok", false):
 		var snap_raw = result.get("snapshot", "")
