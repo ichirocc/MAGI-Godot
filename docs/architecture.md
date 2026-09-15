@@ -1,25 +1,26 @@
 # MAGI Android — モジュール構成と依存・呼び出し関係（知識グラフ）
 
-本書は **MAGI ネイティブ（Android / Kotlin / Jetpack Compose / Material3 / MVVM）** の主要モジュール・サービスと、その依存・呼び出し関係を **entities / relations / observations** 形式でまとめたもの。各 entity の役割は短い observation として併記する。関係は実コード（import / 参照）で裏取りしている。画面の挙動は `screen_spec.md`、デザイン基盤は `magi_design_system.md` を参照。
+本書は **MAGI ネイティブ（Android / Kotlin / Godot 4.5.1 UI / MVVM）** の主要モジュール・サービスと、その依存・呼び出し関係を **entities / relations / observations** 形式でまとめたもの。各 entity の役割は短い observation として併記する。関係は実コード（import / 参照）で裏取りしている。画面の挙動は `screen_spec.md`（Compose 時代の仕様）、Godot UI の実装範囲は `godot-ui-migration.md` を参照。**Compose UI は 3.549.0 で削除。**
 
 - リポジトリ: `ichirocc/magi7ichiro` ／ パッケージ: `com.magi.app`
-- ソース: `app/src/main/java/com/magi/app/`（パッケージ: `model/` `v6/` `ui/` `work/` ＋ `MainActivity`）
+- ソース: `app/src/main/java/com/magi/app/`（パッケージ: `model/` `v6/` `ui/`（ViewModel と純ロジックのみ） `work/` `godot/`）
+- 画面: `godot/`（`project.godot`・`scenes/*.tscn`・`scripts/*.gd`。Gradle の `exportGodotPck` が `assets/magi.pck` へ同梱）
 
 ---
 
 ## レイヤ概観（上から下へ）
 
 ```
-MainActivity (Activity)
-        │ hosts
+MagiGodotActivity (FragmentActivity + GodotHost)
+        │ hosts GodotFragment ／ registers
         ▼
-MagiApp (UI シェル・5タブ)
-        │ observes / calls
+MagiBridge  ◀── JavaClassWrapper（GDScript: godot/scripts/magi_api.gd） ── Godot 画面群（10画面, nav.gd）
+        │ snapshot()=UiState の不変 JSON ／ dispatch(op,args)=MagiOpWhitelist で検査しメインスレッドへ
         ▼
-MagiViewModel  ── produces ─▶ UiState ──▶ UI 画面群（勤務表/分析/編集…）
-        │ holds                                   │ use
-        │ ▶ MagiState（ドメイン＝JSONスキーマ）      ▼
-        │ calls                              Affordance / MagiComponents（共有部品）
+MagiViewModel  ── produces ─▶ UiState
+        │ holds
+        │ ▶ MagiState（ドメイン＝JSONスキーマ）
+        │ calls
         ▼
 V6NativeOptimizer（最適化エンジン核）
    ├ uses ─▶ SaOptimizer / V6 operators / V6 seeders / V6 web-parity
@@ -30,7 +31,7 @@ OptimizationWorker（WorkManager 前景サービス）── runs ─▶ V6Nativ
 StateParser（JSON I/O） / ScheduleCsvBridge（CSV I/O）── map ─▶ MagiState
 ```
 
-役割の分担：**UI** は表示と操作のみ、**ViewModel** が唯一のハブ（状態・操作・最適化起動・I/O）、**v6 エンジン**が探索本体、**model** がデータ、**work** が中断耐性のある背景実行。
+役割の分担：**Godot UI** は表示と操作のみ（Kotlin の可変状態に触れず JSON スナップショットとトークン付き dispatch だけ）、**ViewModel** が唯一のハブ（状態・操作・最適化起動・I/O）、**v6 エンジン**が探索本体、**model** がデータ、**work** が中断耐性のある背景実行。
 
 ---
 
@@ -39,8 +40,10 @@ StateParser（JSON I/O） / ScheduleCsvBridge（CSV I/O）── map ─▶ Magi
 ### アプリ基盤
 | Entity | type | 役割 |
 |---|---|---|
-| `MainActivity` | Activity | アプリの入口。テーマ/Shapes を設定し `MagiApp` をホストする |
-| `MagiApp` | UI-Shell | 画面骨格。5タブ（ホーム/勤務表/編集/分析/設定）＋ TopBar（状態チップ）＋ BottomCommandBar |
+| `MagiGodotActivity`（`godot/`） | Activity | アプリ唯一の入口。`GodotFragment` を埋め込み、`MagiBridge` を生成して static エントリ（`magiSnapshot`/`magiDispatch`）に登録。`--main-pack res://magi.pck` を渡す |
+| `MagiBridge`（`godot/`） | Bridge | `UiState`/`MagiState` を JSON へ直列化（`snapshot`）、許可された操作をメインスレッドで `MagiViewModel` へ委譲（`dispatch`、10 秒上限） |
+| `MagiOpWhitelist` / `MagiBridgeToken`（`godot/`） | Bridge-Logic | 操作名と必須引数の許可リスト／snapshot 本文 SHA-256＋リビジョンのトークン（純 Kotlin、ホストでテスト） |
+| `godot/scripts/magi_api.gd` ・ `nav.gd` ・ `screens/*.gd` | Godot-UI | autoload の API ラッパ（非 Android ではモック）、10 画面のタブ切替、各画面の描画と dispatch |
 | `MagiViewModel` | ViewModel-Hub | **中央ハブ**。状態保持・全操作・最適化起動・I/O・`UiState` 生成（最大級・約124KB） |
 | `UiState` | UI-State | UI 表示用の派生状態（違反/breakdown/schedule/色/満足度 等） |
 
@@ -67,27 +70,25 @@ StateParser（JSON I/O） / ScheduleCsvBridge（CSV I/O）── map ─▶ Magi
 ### 背景実行（work）
 | Entity | type | 役割 |
 |---|---|---|
-| `OptimizationWorker` | Background-Service | WorkManager の**前景サービス**で最適化を実行。中断耐性・スナップショット |
+| `OptimizationWorker` | Background-Service | WorkManager の**前景サービス**で最適化を実行。中断耐性・スナップショット。通知のタップ先は `MagiGodotActivity`（3.549.0 で会話バブルは廃止） |
 
-### UI 画面・部品（ui）
+### UI 補助（ui、Compose 非依存）
 | Entity | type | 役割 |
 |---|---|---|
-| `MagiScheduleViews` | UI-Schedule | 勤務表グリッド / セル / シフト選択シート / 集中モード |
-| `MagiDashboardCards` ＋ `V6RemainingScreens` | UI-Analysis | 分析カード（違反の内訳18 / 俯瞰 / チェック概要 / ボトルネック / 改善提案） |
-| `Ws1Editor` / `StaffRangeEditor` / `ConstraintEditor` / `WishEditor` / `NeedDayEditor` / `SkillGroupEditor` / `CountSettingsScreen` / `ShiftColorEditor` | UI-Editors | 「基本マスター」の各エディタ |
-| `MagiSetupCards` | UI-Setup | 初期設定・外観・データ操作などのカード群 |
-| `Affordance` ＋ `MagiComponents` | UI-Components | 共有部品（`DialogHeader`・3ダイアログボタン・`MagiSegmentedControl` 等） |
+| `AnalysisTriage` / `BreakdownLabels` / `VioBuckets` | UI-Logic | 分析の優先付け・内訳ラベル・違反の集計（ホストでテスト） |
+| `ConstraintHelp` / `JapanHolidays` | UI-Logic | 制約族の説明文・祝日表 |
+
+（Compose の画面・部品＝`MagiApp`・`MagiScheduleViews`・各 Editor・`Affordance`/`MagiComponents`/`MagiTokens` は 3.549.0 で削除。
+画面は `godot/scenes` へ移行、実装状況は `godot-ui-migration.md` の表）
 
 ---
 
 ## Relations（呼ぶ・依存する など）
 
 UI 層
-- `MainActivity` **hosts** `MagiApp`
-- `MagiApp` **observes** `MagiViewModel`
-- `MagiApp` **renders** `MagiScheduleViews`, `MagiDashboardCards`, `V6RemainingScreens`, 各 Editor, `MagiSetupCards`
-- UI 画面群 **call** `MagiViewModel`（操作の委譲）
-- UI 画面群 **use** `Affordance`, `MagiComponents`
+- `MagiGodotActivity` **hosts** `GodotFragment` ／ **creates** `MagiBridge`
+- Godot 画面群（`screens/*.gd`）**call** `magi_api.gd` → `JavaClassWrapper` → `MagiGodotActivity.magiSnapshot/magiDispatch` → `MagiBridge`
+- `MagiBridge` **reads** `MagiViewModel.uiState`/`state` ／ **checks** `MagiOpWhitelist`, `MagiBridgeToken` ／ **calls** `MagiViewModel`（メインスレッド）
 
 ViewModel ハブ
 - `MagiViewModel` **produces** `UiState`
@@ -104,7 +105,7 @@ ViewModel ハブ
 - `DeltaEvaluator` **builds-on** `Evaluator`
 - `Evaluator` **depends-on** `Problem`
 - `Problem` **built-from** `MagiState`
-- `Evaluator`系・`MagiDashboardCards` **use** `MirrorCore`（重み）
+- `Evaluator`系・`MagiViewModel` **use** `MirrorCore`（重み）
 
 データ・I/O
 - `StateParser` **parses/serializes** `MagiState`（JSON）
@@ -114,9 +115,9 @@ ViewModel ハブ
 
 ## 主要フロー（呼び出し連鎖）
 
-1. **起動**: `MainActivity` → `MagiApp`（タブ・状態を `MagiViewModel` から取得）。
-2. **最適化（前景）**: ユーザ操作 → `MagiViewModel.optimize()` → `OptimizationWorker`（前景サービス）→ `V6NativeOptimizer`（seed → SA/ALNS/operators、`Evaluator`/`DeltaEvaluator` で採点、`MirrorCore` の重みで `weightedScore`）→ 結果を `MagiViewModel` → `UiState` → UI 反映（中断時はスナップショットから復帰）。
-3. **編集 → 再最適化**: UI 編集 → `MagiViewModel` が `MagiState` 更新（自動保存 JSON）→ `Problem` 再構築 → 再最適化。
+1. **起動**: `MagiGodotActivity` → `GodotFragment`（`assets/magi.pck`）→ `Home.tscn` → `magi_api.gd.refresh()` → `MagiBridge.snapshot()`（`MagiViewModel` の `UiState` を JSON で受ける）。
+2. **最適化（前景）**: ユーザ操作 → `dispatch("optimize")` → `MagiViewModel.optimize()` → `OptimizationWorker`（前景サービス）→ `V6NativeOptimizer`（seed → SA/ALNS/operators、`Evaluator`/`DeltaEvaluator` で採点、`MirrorCore` の重みで `weightedScore`）→ 結果を `MagiViewModel` → `UiState` → 次の `snapshot()` で画面反映（中断時はスナップショットから復帰）。
+3. **編集 → 再最適化**: 画面の dispatch（トークン付き）→ `MagiViewModel` が `MagiState` 更新（自動保存 JSON）→ `Problem` 再構築 → 再最適化。
 4. **保存/読込/取込**: JSON は `StateParser`、CSV は `ScheduleCsvBridge` を介して `MagiState` と相互変換。
 
 ---
@@ -125,7 +126,7 @@ ViewModel ハブ
 - 本書は「主要モジュール」を対象とした要約であり、全ファイルの網羅ではない（`v6/` には Hotfix/解析系の補助ファイルも存在する）。
 - `Hf63Infeasibility` は呼び手が自己テストのみで実質死蔵（Web 側と同様）。
 - 関係は import / 参照に基づくが、実行時の動的呼び出しの一部は含まれない場合がある。
-- 関連ドキュメント: 画面挙動＝`screen_spec.md`、デザイン基盤＝`magi_design_system.md`、エンジン移植＝`v6_engine_native_port.md`。
+- 関連ドキュメント: Godot UI＝`godot-ui-migration.md`、画面挙動（Compose 時代の仕様）＝`screen_spec.md`、デザイン基盤＝`magi_design_system.md`、エンジン移植＝`v6_engine_native_port.md`。
 
 ## 主要ファイルと役割（CLAUDE.md から移設, 3.505.9）
 
@@ -150,11 +151,14 @@ ViewModel ハブ
 - `V6SwapSuggester.kt` — **`FixSuggester.suggest(...)`**（ユーザー向け修復提案。7種の手を探索）。
 - `Problem.kt` — `C1(day1,shiftIdx,day2)` 等の制約データ型。
 
-UI は `app/src/main/java/com/magi/app/ui/`:
-- `MagiApp.kt` — タブ: 0=ようす(ダッシュボード), 1=勤務表(編集+集計), 2=設定, 3=詳細, else=外観/データ。
+ViewModel は `app/src/main/java/com/magi/app/ui/`:
 - `MagiViewModel.kt` — 状態管理。`findFixSuggestions`/`applyFixSuggestion`、`refreshCheck`(currentSchedule検査)。
-  ジョブ: `job`/`checkJob`/`fixJob`（連続タップ競合回避）。
+  ジョブ: `job`/`checkJob`/`fixJob`（連続タップ競合回避）。ws1系・制約系は `MagiViewModelWs1.kt`/`MagiViewModelConstraints.kt` の拡張関数。
 - `MagiUiState.kt` — `schedule`, `staffNames`, `staffGroupSymbols`, `shiftSymbols`, `countViolations("i,k")`,
   `needViolations("k,j")`, `resultSchedule`, `breakdown` 等。
-- `MagiScheduleViews.kt` — `ScheduleGrid`, `StaffCalendarCard`, **`TallyCard`（シフト集計：職員別/日別＋違反ハイライト）**。
-- `MagiDashboardCards.kt` — `BreakdownCard`, `FixSuggestionCard` 等。`MagiTokens.kt` — `MagiAccent`(色)。
+
+UI は `godot/`（Godot 4.5.1）＋ `app/src/main/java/com/magi/app/godot/`:
+- `godot/scripts/magi_api.gd` — autoload。`JavaClassWrapper.wrap("com.magi.app.godot.MagiGodotActivity")` で `magiSnapshot`/`magiDispatch`。
+- `godot/scripts/nav.gd` — 10 画面（Home/Schedule/StaffGroupsShifts/MonthWishesCounts/AptSkills/Constraints/Analysis/Settings/JsonEditor/UndoExport）のタブ切替。
+- `godot/scripts/screens/base_screen.gd` — `run_op`（失敗時は snapshot から再描画）・status 表示の共通基底。
+- `MagiGodotActivity.kt` / `MagiBridge.kt` / `MagiOpWhitelist.kt` / `MagiBridgeToken.kt` — 上の表を参照。

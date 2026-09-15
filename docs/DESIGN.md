@@ -1,5 +1,7 @@
 # MAGI DESIGN.md — デザイン憲法（人にも AI にも読める）
 
+> **Compose UI は 3.549.0 で削除。色/角丸/影の原則は Godot テーマ（`godot/`）の指針として残す**（以下の本文は Compose 時代の記述のまま）。
+
 > melta-ui（@tsubotax, https://github.com/tsubotax/melta-ui）の「AI-Ready Design System」思想を
 > Jetpack Compose / Material 3 に翻案した MAGI の**デザイン憲法**。melta-ui は Tailwind 前提のため
 > *クラス*ではなく*方法*（憲法＋トークン＋禁止事項＋検証ハーネス）を移植する。

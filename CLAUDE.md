@@ -1,6 +1,7 @@
 # CLAUDE.md — MAGI ShiftOptimizer（Android）
 
-看護師のシフト表を最適化する Android アプリ（Kotlin/Compose、内蔵エンジン MAGI V6）。設計・仕様・業務ルールは README の目次から
+看護師のシフト表を最適化する Android アプリ（内蔵エンジン MAGI V6＝Kotlin。UI は Godot 4.5.1（`godot/`）＋Kotlin ブリッジ
+`app/src/main/java/com/magi/app/godot/`、Compose UI は 3.549.0 で削除＝`docs/godot-ui-migration.md`）。設計・仕様・業務ルールは README の目次から
 `docs/*.md`（業務ルール＝`docs/business-logic.md`、データ項目＝`docs/data-models.md`（存在しない項目を創作しない）、全体像＝`docs/sudo_model.md`）。
 コードを改修したら影響する文書と README の目次・最終更新を**同じコミットで**更新する。
 作業記録は `docs/history/INDEX.md` で当たりを付けて本文を版数で引く（`grep -n 'キーワード' docs/history/INDEX.md` → `grep -n '（3.409.21' docs/history/3.4xx.md`）。
@@ -8,8 +9,9 @@
 教訓は `docs/lessons.md` を**更新**する（新しいメモを作らない）。応答は簡潔・結論先出し・日本語。コード識別子は英語のまま。
 
 ## 環境の注意点（見ても分からない罠）
-- Android のビルドはこのサンドボックスでは不可（CI の Release Build / Android SDK は main への push で走る）。エンジン層と JUnit は
-  `tools/host/hosttest.sh` でホスト JVM で回る（約 1 分。`MAGI_HOST_OUT` で出力先を分けるとベンチ中でも安全）。UI 層（Compose）は不可。
+- Android のビルドはこのサンドボックスでは不可（CI の Godot UI Check が main / `claude/**` への push で APK まで作る）。エンジン層と JUnit は
+  `tools/host/hosttest.sh` でホスト JVM で回る（約 1 分。`MAGI_HOST_OUT` で出力先を分けるとベンチ中でも安全）。Android 依存層
+  （`MagiBridge`・`MagiGodotActivity`・`work/OptimizationWorker`）と Godot 実行は不可（`tools/godot-ui-check.sh` は静的確認のみ）。
 - 規模の上限は職員 30 名・31 日（業務前提）。ビット化経路（`C3nBitScan`・C++ `SaChunk`）はこの範囲で常に有効＝スカラー経路は防御。
 - **Kotlin が正**。C++（`magi_native.cpp`）と C#（`ichirocc/-MAGI_PC`）は同値の移植。評価器を変えたら C++ を同じコミットで
   （`.claude/rules/weights.md`）、C# は同日に同期。パリティは CI（native-parity）が守る。
@@ -28,8 +30,9 @@
   起点からの候補生成は共同 LNS の**後**の最終段。巡の中で単セル covU 修正を採ると LNS の余地を先に使う）。
 - 読みが分かれて成果物が変わるときだけ止まって聞く（AskUserQuestion、選択肢に推奨度⭐と理由）。それ以外は仮定を明記して進める。
 - 周囲のコードのコメント密度・命名に合わせる。コミット前に `comment-check` で追加コメントを 1 行ずつ判定する。
-- 画面（`ui/` の Composable）を触ったら `design-review`、非自明な変更・仕様判断の前は `grilling`（一問ずつ、推奨案つき）。
-- この repo に入っているスキルは `.claude/skills/` の 3 つ。無いスキル名を前提にしない。
+- 画面（`godot/scenes`・`godot/scripts`）を触ったら `docs/DESIGN.md` の原則（色/角丸/影・片手一本指）に照らす（Compose 向けの
+  `design-review` スキルは 3.549.0 で削除）。非自明な変更・仕様判断の前は `grilling`（一問ずつ、推奨案つき）。
+- この repo に入っているスキルは `.claude/skills/` の 2 つ（`comment-check`・`grilling`）。無いスキル名を前提にしない。
 
 ## 制約ファミリーと重み（実装＝`MirrorKeys.weights` が正）
 - **c1**（窓制約, SOFT, 重み50）: `C1(day1=窓, shiftIdx=単一シフト, day2=最低数)`。窓day1内にshiftIdxがday2回以上。

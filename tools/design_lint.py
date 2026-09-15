@@ -1,25 +1,29 @@
 #!/usr/bin/env python3
 """MAGI design lint — melta-ui 流「壊れたら気づくハーネス」（docs/DESIGN.md の禁止事項 P1-P4）。
 
-一次ソース（MainActivity.MagiTheme / MagiTokens.kt）に集約されたトークンからの逸脱を静的検査する。
-Compose/Kotlin をコンパイルせずに grep 相当で検出（サンドボックスでも走る）。advisory=既定は非 fatal。
+Kotlin をコンパイルせずに grep 相当で検出（サンドボックスでも走る）。advisory=既定は非 fatal。
+
+**Compose UI は 3.549.0 で削除**（UI は Godot 4.5.1 `godot/`）。Compose の ui/*.kt を対象にしていた
+P1〜P4・P8・P11・P12 は対象が無く常に 0 件（P8 は @Composable が無いときスキップ、P12 は
+ShiftColorEditor.kt が無いときスキップ）。引き続き効くのは P5（Kotlin 文字列テンプレート）・
+P6（message severity）・P7（文字化け）・P9（beginBoardJob/endBoardJob）・P10（シフト記号の字面比較）。
 
 使い方:
     python3 tools/design_lint.py            # 報告のみ（exit 0）
     python3 tools/design_lint.py --strict   # 違反があれば exit 1（CI で fail させたいとき）
 
 検査:
-    P1 純黒本文/背景     : ui/*.kt の Color(0xFF000000) / Color.Black（UD の MainActivity は対象外）
-    P2 生 hex の散布      : ui/*.kt（MagiTokens.kt 除く）の Color(0x……) 直書き（baseline 監視）
-    P3 重い影            : .shadow( / shadowElevation の使用
-    P4 任意角丸          : ui/*.kt の RoundedCornerShape(<dp>) 直書き（pill=999/CircleShape は除外）
+    P1 純黒本文/背景     : ui/*.kt の Color(0xFF000000) / Color.Black（Compose 削除により対象なし）
+    P2 生 hex の散布      : ui/*.kt の Color(0x……) 直書き（Compose 削除により対象なし）
+    P3 重い影            : .shadow( / shadowElevation の使用（Compose 削除により対象なし）
+    P4 任意角丸          : ui/*.kt の RoundedCornerShape(<dp>) 直書き（Compose 削除により対象なし）
     P5 テンプレート食い込み: 文字列テンプレートで変数の直後に日本語が続く（Kotlin は日本語を識別子文字と
                             して扱うため `${'$'}count件` は `count件` という未定義シンボルになる＝必ずビルドが落ちる）
     P6 message severity  : message を書くのに messageIsError を書かない copy(…)
     P7 二重エンコード      : UTF-8 を Latin-1 として読んだ内容を保存した文字化け（追跡中の全テキスト）
     P8 DS の ✅ 誤表示     : magi_design_system.md が「実装済(✅)」と書いた共通コンポーネントの実在確認
-    P11 fontSize 直書き   : ui/*.kt の fontSize = N.sp 直書き（一次ソースは MainActivity の
-                            Typography。MaterialTheme.typography.* へ寄せる。baseline 監視）
+                            （Compose 削除により対象なし＝@Composable が無いときはスキップ）
+    P11 fontSize 直書き   : ui/*.kt の fontSize = N.sp 直書き（Compose 削除により対象なし）
 """
 import os
 import re
@@ -262,6 +266,9 @@ def find_p8():
                 with open(os.path.join(base, fn), encoding="utf-8") as f:
                     src.append(f.read())
     code = "\n".join(src)
+    # Compose 削除（3.549.0）後は ✅ の Composable が構造的に存在しない＝文書は Godot 移行前の記録として残す。
+    if "@Composable" not in code:
+        return out
     sec, mark, in_block, n0 = None, False, False, 0
     for n, line in enumerate(lines, 1):
         m = RE_DS_HEAD.match(line)
@@ -471,7 +478,8 @@ def find_p10():
 #   baseline として残す（群×シフト担当可否マトリクスのヘッダ/セル密表示・並列数±ステッパー等。
 #   一般的なタイポスケールを適用するとレイアウトが壊れる/操作性が落ちる箇所）。
 #   `letterSpacing = N.sp` は対象外（フォントサイズでなく字間なので誤検出しない）。
-P11_BASELINE = 6
+#   [3.549.0] Compose UI 削除で対象が消え 0 件。
+P11_BASELINE = 0
 RE_P11_FONTSIZE = re.compile(r"\bfontSize\s*=\s*\d+\.sp\b")
 
 

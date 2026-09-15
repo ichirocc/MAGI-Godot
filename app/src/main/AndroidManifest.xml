@@ -27,25 +27,19 @@
         android:largeHeap="true"
         android:enableOnBackInvokedCallback="true"
         android:supportsRtl="true">
+        <!-- [Godot UI] 唯一の起動入口（3.549.0 で Compose の入口 Activity とバブル用 Activity を撤去）。
+             configChanges は Godot 公式テンプレートに合わせ、回転・文字サイズ等で Activity を再生成せず
+             エンジンを生かしたままにする。 -->
         <activity
-            android:name=".MainActivity"
-            android:exported="true">
+            android:name=".godot.MagiGodotActivity"
+            android:exported="true"
+            android:configChanges="orientation|keyboardHidden|screenSize|smallestScreenSize|density|keyboard|navigation|screenLayout|uiMode|fontScale"
+            android:theme="@style/Theme.Magi">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <!-- [Android 17 バブル] 会話バブルの展開ビュー。バブルに埋め込む Activity は
-             allowEmbedded / resizeableActivity / documentLaunchMode="always" が必須
-             （これらが無いと BubbleMetadata を付けても通知はバブル化されない）。
-             起動は BubbleSupport の PendingIntent 経由のみのため exported=false。 -->
-        <activity
-            android:name=".work.BubbleActivity"
-            android:exported="false"
-            android:allowEmbedded="true"
-            android:resizeableActivity="true"
-            android:documentLaunchMode="always"
-            android:theme="@style/Theme.Magi" />
         <!-- [クラッシュ修正/実機報告「閉じても大丈夫でクラッシュ」] targetSdk 34+ では、Worker の
              setForeground(FOREGROUND_SERVICE_TYPE_DATA_SYNC) に対応する型を WorkManager の前景サービス
              宣言側にもマージで明記しないと、起動の瞬間に MissingForegroundServiceTypeException で落ちる

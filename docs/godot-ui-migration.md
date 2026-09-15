@@ -6,9 +6,10 @@ Android SDK / Godotエンジン本体が無いため**一切実施できてい�
 
 ## 目的・方針
 
-既存Compose UI（`app/src/main/java/com/magi/app/ui/`）と並行して、Godot 4.5.1製のUIレイヤーを追加する。
+既存Compose UI（`app/src/main/java/com/magi/app/ui/`）と並行して、Godot 4.5.1製のUIレイヤーを追加する
+（第1〜5段。**第6段で Compose UI を削除し Godot 版のみ**＝本書末尾）。
 - **エンジン層（`v6/`）・重み・保存形式・希望固定の業務解釈は一切変更しない。** Kotlinが正（CLAUDE.md）。
-- 既存Composeビルドは`magiGodot`フラグ（Gradleプロパティ）でOFF/ONを切り替え、既定(OFF)では無変更。
+- 第5段まで: 既存Composeビルドは`magiGodot`フラグ（Gradleプロパティ）でOFF/ONを切り替え、既定(OFF)では無変更。
 - GodotはKotlin側の可変状態(ViewModel)に直接触らず、`MagiBridge`が発行する不変JSONスナップショットと
   トークン付きdispatchのみを介して読み書きする。
 
@@ -190,6 +191,92 @@ ws1系・addCons系・updateConstraint/removeConstraintをdispatchする。並�
 対応しなかった/別段のもの: 候補詳細（`fixSuggestions`/`settingIssues` 本文）の JSON 契約拡張、希望セル編集、
 JSON 全文書き出し・SAF 入出力、安定 ID 化、`canonicalBody` のキーソート（両側が同じ生成器・同じ順序のため現状は不要）、
 実機/エミュレータでの統合テスト。
+
+## 第6段: Compose UI 削除・Godot 一本化（3.549.0、ユーザー決定）
+
+第5段の CI 成功を受け、Compose UI を削除して Godot 版を唯一のビルドにした。`main` は実機確認まで凍結＝作業ブランチのみ。
+上の各節に残る「`magiGodot=true` のときだけ」「Compose 側の LAUNCHER を外す」等の記述は第5段までの経緯であり、現状は本節が正。
+
+**削除したもの**
+- `app/src/main/java/com/magi/app/MainActivity.kt`（Compose ホスト。`MagiTheme` を含む）
+- `ui/` の Composable 17 ファイル: `Affordance`・`ConstraintEditor`・`MagiApp`・`MagiComponents`・`MagiDashboardCards`・
+  `MagiScheduleViews`・`MagiSetupCards`・`MagiTokens`・`NeedDayEditor`・`ShiftColorEditor`・`SkillGroupEditor`・`StaffManageCard`・
+  `StaffRangeEditor`・`StaffShiftMatrix`・`V6RemainingScreens`・`WishEditor`・`Ws1Editor`
+- `work/BubbleActivity.kt`（会話バブルの展開ビュー＝Compose）と `work/BubbleSupport.kt`（バブル通知・会話ショートカット）
+- `app/src/godot/AndroidManifest.xml`（build-type manifest による LAUNCHER 付け替えは不要に）
+- `.claude/skills/design-review/`（Compose の Composable 専用レビュー）
+- CI: `v6-engine-check.yml`（Compose 版 test+assembleDebug）・`release-build.yml`（Compose 版 release）
+
+**残したもの**（Compose 非依存）
+- `ui/`: `MagiUiState`・`MagiViewModel`・`MagiViewModelConditions`・`MagiViewModelConstraints`・`MagiViewModelIo`・
+  `MagiViewModelWs1`・`AnalysisTriage`・`BreakdownLabels`・`ConstraintHelp`・`JapanHolidays`・`VioBuckets`（ロジック無変更）
+- `v6/`・`model/`・`work/OptimizationWorker`・`OptimizationRepository`・`RunFiles`・`SaveGate`・`godot/`（ブリッジ）・`KigouFormat.kt`
+- `docs/DESIGN.md`・`docs/magi_design_system.md`・`docs/screen_spec.md` 等の Compose 時代の文書（Godot テーマの指針として保持）
+
+**通知の変更**（`work/OptimizationWorker.kt`）
+- 会話バブル（`BubbleMetadata`・`MessagingStyle`・長寿命ショートカット）は展開先 Activity が無くなるため廃止。
+- 前景通知（`NID_PROGRESS`）を同 ID で ~1.5 秒間引きの進捗文（経過・違反数）に更新＝バブルが担っていた常時表示の代替。
+- 前景・完了・失敗の各通知に `contentIntent`＝`MagiGodotActivity`（`FLAG_ACTIVITY_NEW_TASK|CLEAR_TOP`）を付与。
+
+**ビルドの一本化**
+- `MagiGodotActivity.kt` を `app/src/main/java/com/magi/app/godot/` へ移動。`app/src/main/AndroidManifest.xml` が
+  `.godot.MagiGodotActivity`（`exported=true`・`configChanges` は Godot 公式テンプレート準拠）を唯一の LAUNCHER として宣言。
+- `app/build.gradle.kts`: `magiGodot` フラグ撤去。Godot AAR（`org.godotengine:godot:4.5.1.stable`）・`androidx.fragment` を通常の
+  `implementation` に、`importGodotProject`/`exportGodotPck`・assets 同梱・`preBuild.dependsOn` を無条件に。`-PgodotExecutable` は
+  常時必須（無ければ `GradleException`）。Compose プラグイン・`buildFeatures.compose`・compose-bom/activity-compose/
+  lifecycle-*-compose/material-icons-extended を撤去し、`MagiViewModel`（`AndroidViewModel`/`viewModelScope`）用に
+  `androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.6` を明示。`activity-ktx` は `fragment` 経由で届くため追加せず。
+  root `build.gradle.kts` から Compose プラグイン宣言を撤去。versionCode 768→769、versionName `3.549.0-godot-ui`。
+
+**CI の整理**
+- `godot-ui-check.yml` が主 CI（`-PmagiGodot=true` 指定を外し、コメントを現状に）。トリガーは従来どおり。
+- `godot-release-build.yml` も同様。`design-lint.yml` のコメントを更新（P1〜P4/P11 は対象なし）。
+- `tools/design_lint.py`: P8（設計文書の ✅ 実在確認）は `@Composable` が無いときスキップ、P11 baseline 6→0。
+  P5/P6/P7/P9/P10 は従来どおり動く。
+
+**検証**: `tools/host/hosttest.sh` 775 件成功、`tools/godot-ui-check.sh`・`tools/design_lint.py` 通過、ワークフロー YAML の
+パース確認。Android 実ビルドはこの環境では不可＝作業ブランチへの push で走る Godot UI Check（testDebugUnitTest →
+assembleDebug → 起動構成 assert）が確認手段。実機での起動は引き続き未実施。
+
+## 第7段: 実機「起動直後にクラッシュ」への対応＝起動診断（3.550.0）
+
+第6段までの APK（ad82143 の成果物）が実機で起動直後に落ちたとの報告。logcat は得られない前提で、
+**原因を画面に出す仕組み**と**疑わしい経路の回避**を同時に入れた（原因は未特定＝次の実機報告で絞る）。
+
+**MagiStartupGuard（`app/src/main/java/com/magi/app/godot/MagiStartupGuard.kt`）**
+- 起動段階を `filesDir/magi_startup_stage.txt` に記録: `activity`（Activity 生成）→ `viewmodel`（MagiViewModel・MagiBridge 生成）→
+  `engine`（`GodotFragment.commitNow()` 復帰＝`Godot.initEngine`/レンダービュー生成が済んだ）→ `ui`（GDScript が最初に
+  `magiSnapshot()`/`magiDispatch()` を呼んだ＝画面が Kotlin まで到達）。
+- `Thread.setDefaultUncaughtExceptionHandler` で未捕捉例外を `filesDir/magi_crash.txt` に残してから既定ハンドラへ渡す。
+  ネイティブクラッシュ（SIGSEGV 等）は Java 側で捕まえられないが、到達段階で「どこまで来たか」は分かる。
+- 次の起動で「前回 `ui` に到達していない」または「例外記録がある」なら `MagiGodotActivity` は Godot を起動せず、素の View で
+  診断画面を出す: 版数・端末・レンダラー・到達段階と説明・PCK の状態（assets のサイズ／filesDir 複製）・Java 例外・
+  Godot ログ末尾（`project.godot` の `debug/file_logging/enable_file_logging=true` で `user://logs/` に出る）。
+  ボタンは「そのまま起動」（記録を消して再起動）と「OpenGL 互換レンダラーで起動」（Vulkan 初期化で落ちる端末の退避先。
+  Godot 4.5 の `Godot.kt` は `--rendering-method`/`--rendering-driver` をコマンドラインから読み、ProjectSettings より優先して
+  GL 用レンダービューを選ぶ＝Java 側とネイティブ側の食い違いは起きない）。
+- `launchGodot()` を `try/catch(Throwable)` で包み、`GodotFragment` が拾わない例外（`.so` 読込失敗の `UnsatisfiedLinkError` 等）も
+  同じ診断画面に出す。`GodotFragment.performEngineInitialization` 自身は `IllegalStateException`（PCK 読込失敗・レンダービュー
+  生成失敗）を捕まえてダイアログを出しプロセスを終了する＝この場合も次回起動で `engine`/`viewmodel` 段階として現れる。
+
+**PCK の渡し方を変更**
+- `assets/magi.pck` を `filesDir/magi.pck` へ複製し、絶対パスで `--main-pack` に渡す（Godot 自身の APK 拡張パック経路と同じ形。
+  再複製の判定は versionCode と APK の更新時刻）。複製に失敗したときだけ従来の `res://magi.pck`（AAsset 直読み）へ退避。
+- `app/build.gradle.kts` に `androidResources { noCompress += listOf("pck") }`＝退避経路でも圧縮エントリの seek を避ける。
+
+**CI の検証を強化**（`tools/check_apk_native_libs.py`、`godot-ui-check.yml` と `godot-release-build.yml` の両方から実行）
+- 必須エントリに `lib/arm64-v8a/libc++_shared.so`（`libgodot_android.so` の依存）を追加。
+- `.so` が非圧縮（STORED）で、データ先頭が 16KiB 境界に載っていることを APK のローカルヘッダから検査
+  （Android 16 の 16KB ページ端末は APK から直接 mmap する。ELF の LOAD 整列は確認済みだったが APK 内整列は未確認だった）。
+- `assets/magi.pck` が非圧縮であること。
+
+**確認済み（Godot AAR のバイトコード読解）**: `GodotFragment.onCreate` は `parentHost.getGodot()` が null なら
+`Godot.getInstance(context)` を使う（本 Activity の `getGodot()` はフラグメント生成前は null＝想定どおり）。`Godot.initEngine` は
+`--main-pack` を含むコマンドラインをそのまま `GodotLib.setup` へ渡す。`--use_apk_expansion` を渡していないので expansion
+downloader 経路（`IllegalArgumentException`）には入らない。
+
+**次の実機報告で見るもの**: 診断画面のスクリーンショット（到達段階＋例外／Godot ログ）。`viewmodel` 止まりなら
+`.so`/PCK/レンダラー、`engine` 止まりなら描画開始か GDScript（Godot ログに出る）、例外記録があればその内容。
 
 ## 参照した既存仕様
 

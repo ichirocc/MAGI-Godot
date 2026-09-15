@@ -47,7 +47,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 /**
  * [Godot移行] Godot(GDScript)からJNI経由で呼ばれる公開API。
- * 既存 MagiViewModel（Compose UIが使うもの）を一切変更せず、そのStateFlowを読み・
+ * MagiViewModel（状態・操作のハブ）を変更せず、そのStateFlowを読み・
  * 許可された操作(MagiOpWhitelist)だけを合流させる薄い境界層。
  *
  * - snapshot(): 現在のUiStateを不変JSON文字列として返す（可変オブジェクトそのものは渡さない）。
@@ -55,7 +55,7 @@ import java.util.concurrent.atomic.AtomicLong
  *
  * Godot側の呼び出しはGodotの描画/スクリプトスレッドから来る想定のため、ここでは
  * Handler(mainLooper) + CountDownLatch でメインスレッドへ同期的に移送する
- * （ViewModelのStateFlow/内部状態はメインスレッド専有が前提＝既存Compose側と同じ制約）。
+ * （ViewModelのStateFlow/内部状態はメインスレッド専有が前提）。
  */
 class MagiBridge(private val viewModel: MagiViewModel) {
 

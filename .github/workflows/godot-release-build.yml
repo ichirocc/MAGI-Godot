@@ -1,7 +1,7 @@
 name: Godot Release Build
 
-# Godot 版（-PmagiGodot=true）のリリース APK を生成するワークフロー。Compose 版の release-build.yml と対。
-# - v* タグを打つと自動で Godot 版 release APK をビルドし、成果物としてアップロードする。
+# リリース APK を生成するワークフロー（UI は Godot 版のみ＝3.549.0 で Compose 版の release-build.yml は削除）。
+# - v* タグを打つと自動で release APK をビルドし、成果物としてアップロードする。
 # - 手動実行（workflow_dispatch）では upload_apk=true のときだけアップロードする（build_debug=true で debug も）。
 # 検証（smoke / 単体テスト / 起動構成 assert）は godot-ui-check.yml が push/PR ごとに担う。ここは成果物専用で、
 # 起動構成の assert だけは同じものを掛ける（assemble が通っても起動できない APK を配らないため）。
@@ -116,7 +116,7 @@ jobs:
         run: |
           mkdir -p build/ci-logs
           set -o pipefail
-          gradle -PmagiGodot=true -PgodotExecutable="$GODOT_BIN" :app:assembleRelease --no-daemon --stacktrace 2>&1 \
+          gradle -PgodotExecutable="$GODOT_BIN" :app:assembleRelease --no-daemon --stacktrace 2>&1 \
             | tee build/ci-logs/assembleRelease-godot.log || {
             echo "===== Build error summary ====="
             grep -nE "^e: |error:|FAILURE:|What went wrong|Caused by|::error" build/ci-logs/assembleRelease-godot.log | head -60
@@ -130,7 +130,7 @@ jobs:
           GODOT_BIN: ${{ steps.godot.outputs.path }}
         run: |
           set -o pipefail
-          gradle -PmagiGodot=true -PgodotExecutable="$GODOT_BIN" :app:assembleDebug --no-daemon --stacktrace 2>&1 \
+          gradle -PgodotExecutable="$GODOT_BIN" :app:assembleDebug --no-daemon --stacktrace 2>&1 \
             | tee build/ci-logs/assembleDebug-godot.log
 
       # godot-ui-check.yml と同じ検証。release の合流後 Manifest と APK 内容を必須にする。
@@ -152,15 +152,13 @@ jobs:
                       launchers.append(name)
           print("LAUNCHER activities:", launchers)
           if launchers != ["com.magi.app.godot.MagiGodotActivity"]:
-              print("::error::magiGodot=true では MagiGodotActivity だけが LAUNCHER であるべき")
+              print("::error::MagiGodotActivity だけが LAUNCHER であるべき")
               sys.exit(1)
           PY
           apk=$(ls app/build/outputs/apk/release/*.apk | head -1)
           unzip -l "$apk" > build/ci-logs/apk-contents-release.txt
-          for f in "assets/magi\.pck" "lib/arm64-v8a/libgodot_android\.so" "lib/arm64-v8a/libmagi_native\.so"; do
-            grep -qE "${f}$" build/ci-logs/apk-contents-release.txt || { echo "::error::APK に ${f//\\/} が無い"; exit 1; }
-          done
-          echo "OK: launcher / magi.pck / libgodot_android.so / libmagi_native.so ($apk)"
+          # 必須エントリ（magi.pck / libgodot_android / libmagi_native / libc++_shared）と .so の非圧縮・16KiB 整列
+          python3 tools/check_apk_native_libs.py "$apk"
 
       - name: Upload CI logs (on failure only)
         if: failure()
