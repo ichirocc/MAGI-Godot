@@ -42,6 +42,11 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # [3.548.0 / magi7ichiro-fork由来] 既定 "tools platform-tools" の旧 tools パッケージが
+          #   SDK リポジトリから消えており、setup 段で exit 1 になる。必要なパッケージは下の
+          #   sdkmanager ステップで入れるので、ここでは platform-tools だけにする。
+          packages: platform-tools
 
       - name: Accept Android SDK licenses
         run: yes | sdkmanager --licenses >/dev/null || true
